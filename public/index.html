@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>無料占い ツキヨミ｜姓名判断・四柱推命・タロット・星座・西洋占星術を同時診断</title>
+<meta name="description" content="名前と生年月日だけで5種類の占いを同時に無料診断。姓名判断の五格、四柱推命の命式、タロット3枚引き、星座、西洋占星術のホロスコープをすべて実際に計算します。登録不要・その場で結果表示。">
+<link rel="canonical" href="__SITE_URL__/">
+<meta name="robots" content="index,follow,max-image-preview:large">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="ツキヨミ">
+<meta property="og:title" content="無料占い ツキヨミ｜5種類を同時診断">
+<meta property="og:description" content="名前と生年月日だけで、姓名判断・四柱推命・タロット・星座・西洋占星術を同時に無料診断。登録不要。">
+<meta property="og:url" content="__SITE_URL__/">
+<meta property="og:image" content="__SITE_URL__/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:type" content="image/png">
+<meta property="og:image:alt" content="ツキヨミ 無料占い｜姓名判断・四柱推命・タロット・星座・西洋占星術">
+<meta property="og:locale" content="ja_JP">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#0b0a14">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@graph":[
+{"@type":"WebSite","@id":"__SITE_URL__/#website","url":"__SITE_URL__/","name":"ツキヨミ",
+ "description":"5種類の占いを同時に無料診断できる占いサイト","inLanguage":"ja"},
+{"@type":"WebApplication","name":"ツキヨミ 無料占い","url":"__SITE_URL__/",
+ "applicationCategory":"LifestyleApplication","operatingSystem":"Web","inLanguage":"ja",
+ "offers":{"@type":"Offer","price":"0","priceCurrency":"JPY"},
+ "featureList":["姓名判断（五格）","星座占い","タロット3枚引き","四柱推命（命式）","西洋占星術（ホロスコープ）"]},
+{"@type":"FAQPage","mainEntity":[
+ {"@type":"Question","name":"無料で占えますか？","acceptedAnswer":{"@type":"Answer","text":"5種類すべての診断を無料でご利用いただけます。登録も不要です。"}},
+ {"@type":"Question","name":"何を入力しますか？","acceptedAnswer":{"@type":"Answer","text":"お名前（姓・名）と生年月日です。気になっていることは任意でご入力いただけます。"}},
+ {"@type":"Question","name":"占いの結果はどう決まりますか？","acceptedAnswer":{"@type":"Answer","text":"姓名の画数から五格、生年月日から星座・干支・命式・ホロスコープをすべて実際に計算しています。同じ条件なら結果は変わりません。"}},
+ {"@type":"Question","name":"姓名判断の画数はどの流派ですか？","acceptedAnswer":{"@type":"Answer","text":"新字体（常用漢字）の画数に基づいて算出しています。流派により値が異なる場合があります。"}}]}
+]}
+</script>
+<style>
+:root{--bg:#0b0a14;--card:#171531;--line:#2b2750;--fg:#f0edff;--sub:#a49ec9;--acc:#a78bfa;--gold:#f5c869}
+*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(1200px 600px at 50% -10%,#241f4d 0%,#0b0a14 60%);color:var(--fg);font:15px/1.75 -apple-system,BlinkMacSystemFont,"Hiragino Sans","Segoe UI",Roboto,sans-serif;min-height:100vh}
+.wrap{max-width:680px;margin:0 auto;padding:26px 18px 70px}
+header{text-align:center;margin-bottom:20px}
+h1{margin:0;font-size:26px;letter-spacing:.18em}
+h1 small{display:block;letter-spacing:.3em;font-size:10.5px;color:var(--acc);margin-top:7px}
+.lead{color:var(--sub);font-size:13.5px;margin:11px 0 0}
+.card{background:rgba(23,21,49,.88);border:1px solid var(--line);border-radius:16px;padding:20px;margin-bottom:15px}
+label{display:block;font-size:12.5px;color:var(--sub);margin:0 0 5px}
+input,select,textarea{width:100%;background:#0f0d20;border:1px solid var(--line);color:var(--fg);border-radius:9px;padding:11px;font-size:15px;font-family:inherit}
+textarea{resize:vertical;min-height:62px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.f{margin-bottom:13px}
+button{width:100%;background:linear-gradient(135deg,#7c5cf0,#a78bfa);color:#fff;border:0;border-radius:11px;padding:14px;font-size:15.5px;font-weight:700;cursor:pointer;font-family:inherit}
+button.gold{background:linear-gradient(135deg,#e0a93f,#f5c869);color:#3a2607}
+button.ghost{background:transparent;border:1px solid var(--line);color:var(--sub);font-weight:500;font-size:13.5px;padding:10px}
+button.small{padding:9px;font-size:13px}
+button:disabled{opacity:.5;cursor:not-allowed}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+.tabs button{flex:1 1 auto;min-width:88px;width:auto;padding:9px 6px;font-size:12.5px;background:#0f0d20;border:1px solid var(--line);color:var(--sub);font-weight:600;border-radius:9px}
+.tabs button.on{background:#2a2450;color:var(--fg);border-color:var(--acc)}
+.rtitle{display:flex;align-items:center;gap:9px;margin:0 0 4px}
+.rtitle .ic{width:28px;height:28px;flex:0 0 28px;border-radius:8px;background:#2a2450;display:grid;place-items:center;font-size:14px;color:var(--gold)}
+.rtitle h2{margin:0;font-size:16.5px}
+.rdesc{color:var(--sub);font-size:12.5px;margin:0 0 14px}
+.summary{background:#0f0d20;border:1px solid var(--line);border-radius:10px;padding:12px;font-size:14px;margin-bottom:12px}
+.pt{margin:0 0 8px;white-space:pre-wrap}
+.scores{display:grid;gap:8px;margin:12px 0}
+.row{display:flex;align-items:center;gap:10px;font-size:13.5px}
+.row span:first-child{width:48px;color:var(--sub);flex:0 0 48px}
+.meter{flex:1;height:7px;background:#2b2750;border-radius:4px;overflow:hidden}
+.meter i{display:block;height:100%;background:linear-gradient(90deg,#7c5cf0,#f5c869)}
+.row b{width:30px;text-align:right;font-size:13px}
+.lucky{display:flex;gap:8px;flex-wrap:wrap;margin-top:11px}
+.chip{background:#0f0d20;border:1px solid var(--line);border-radius:999px;padding:5px 12px;font-size:12.5px;color:var(--sub)}
+.chip b{color:var(--gold);font-weight:600}
+.teaser{border-left:3px solid var(--gold);padding:8px 12px;background:rgba(245,200,105,.07);border-radius:0 8px 8px 0;font-size:13.5px;color:#e8dfc4;margin:14px 0 0}
+.paywall{border:1px solid #4a3c1a;background:linear-gradient(180deg,rgba(245,200,105,.1),rgba(245,200,105,.02));border-radius:14px;padding:18px;text-align:center;margin-top:15px}
+.paywall h3{margin:0 0 5px;font-size:16px;color:var(--gold)}
+.paywall p{margin:0 0 12px;color:var(--sub);font-size:13px}
+.paywall .price{font-size:24px;font-weight:800;color:var(--gold);margin:0 0 2px}
+.bundle{border:1px solid var(--acc);background:linear-gradient(180deg,rgba(167,139,250,.12),rgba(167,139,250,.02));border-radius:14px;padding:18px;text-align:center;margin-top:13px}
+.bundle h3{margin:0 0 5px;font-size:16px;color:var(--acc)}
+.bundle .price{font-size:24px;font-weight:800;color:var(--acc)}
+.bundle .strike{color:var(--sub);text-decoration:line-through;font-size:13px;margin-left:7px}
+.bundle p{margin:6px 0 12px;color:var(--sub);font-size:13px}
+.deep h3{margin:18px 0 6px;font-size:14.5px;color:var(--gold)}
+.deep p{margin:0;white-space:pre-wrap}
+.unlockbox{display:flex;gap:8px;margin-top:11px}
+.unlockbox input{flex:1}
+.unlockbox button{width:auto;flex:0 0 auto;padding:11px 16px;font-size:13.5px}
+footer{text-align:center;color:#6b649a;font-size:11.5px;margin-top:24px;line-height:1.85}
+.cta{display:block;width:100%;background:linear-gradient(135deg,#7c5cf0,#a78bfa);color:#fff;border-radius:11px;padding:14px;font-size:15.5px;font-weight:700;text-align:center;text-decoration:none}
+.cta.gold{background:linear-gradient(135deg,#e0a93f,#f5c869);color:#3a2607}
+.hidden{display:none}
+.err{color:#ff9d9d;font-size:13px;margin-top:8px}
+@media(max-width:480px){.two{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1>ツキヨミ<small>FORTUNE TELLING</small></h1>
+  <p class="lead">姓名判断・星座・タロット・四柱推命・西洋占星術。<br>5種類の占いを同時に読み解きます。まずは無料で。</p>
+</header>
+
+<div class="card" id="form">
+  <div class="two">
+    <div class="f"><label>姓（姓名判断に使用）</label><input id="sei" placeholder="佐藤" autocomplete="off"></div>
+    <div class="f"><label>名</label><input id="mei" placeholder="美咲" autocomplete="off"></div>
+  </div>
+  <div class="two">
+    <div class="f"><label>生年月日</label><input id="bd" type="date" value="1995-07-15"></div>
+    <div class="f"><label>性別（任意）</label><select id="sex"><option>回答しない</option><option>女性</option><option>男性</option><option>その他</option></select></div>
+  </div>
+  <div class="f"><label>今いちばん気になっていること（任意）</label><textarea id="q" placeholder="転職しようか迷っています"></textarea></div>
+  <button id="go">5種類すべて無料で診断する</button>
+  <p class="err hidden" id="err"></p>
+</div>
+
+<div id="out"></div>
+
+<footer>
+  娯楽目的の鑑定です。医療・法律・投資の判断に用いるものではありません。<br>
+  姓名判断の画数は新字体（常用漢字）の画数に基づき算出しています。流派により値が異なる場合があります。<br>
+  入力された生年月日・お名前・ご相談内容は鑑定の生成のためにのみ利用し、第三者へ提供しません。<br>
+  <a href="privacy.html" style="color:#8b83c4">プライバシーポリシー</a>
+</footer>
+</div>
+
+<script>
+let DATA=null,INPUT=null,ACTIVE=0;
+// 有料鑑定はサイト上では表示しない（ココナラのトークルームで納品する）
+const $=id=>document.getElementById(id);
+
+$('go').onclick=async()=>{
+  const bd=$('bd').value;
+  $('err').classList.add('hidden');
+  if(!bd){$('err').textContent='生年月日を入力してください';$('err').classList.remove('hidden');return;}
+  INPUT={sei:$('sei').value,mei:$('mei').value,name:($('sei').value+$('mei').value)||'あなた',
+         birthday:bd,gender:$('sex').value,question:$('q').value};
+  $('go').disabled=true;$('go').textContent='鑑定中…';
+  try{
+    const res=await fetch('/api/diagnose',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(INPUT)});
+    const j=await res.json();
+    if(!res.ok)throw new Error(j.error||'失敗しました');
+    DATA=j;$('form').classList.add('hidden');render();
+  }catch(e){$('err').textContent=e.message;$('err').classList.remove('hidden');}
+  finally{$('go').disabled=false;$('go').textContent='5種類すべて無料で診断する';}
+};
+
+const F={love:'恋愛',work:'仕事',money:'金運',health:'健康'};
+
+function render(){
+  const t=DATA.types[ACTIVE];
+  const tabs=DATA.types.map((x,i)=>`<button class="${i===ACTIVE?'on':''}" onclick="ACTIVE=${i};render()">${x.name}</button>`).join('');
+  let body='';
+  if(!t.available){
+    body=`<p class="pt">${t.reason||'この占いには追加の入力が必要です。'}</p>
+      <p><button class="ghost" onclick="location.reload()">入力し直す</button></p>`;
+  }else{
+    const f=t.free;
+    body=`<div class="summary">${f.summary}</div>`;
+    for(const p of (f.points||[]))body+=`<p class="pt">${p}</p>`;
+    if(f.scores){
+      body+='<div class="scores">'+Object.keys(F).map(k=>
+        `<div class="row"><span>${F[k]}</span><div class="meter"><i style="width:${f.scores[k]}%"></i></div><b>${f.scores[k]}</b></div>`).join('')+'</div>';
+    }
+    if(f.lucky){
+      body+=`<div class="lucky"><div class="chip">カラー <b>${f.lucky.color}</b></div>
+        <div class="chip">アイテム <b>${f.lucky.item}</b></div><div class="chip">数字 <b>${f.lucky.number}</b></div></div>`;
+    }
+    if(f.cards){
+      body+='<div class="lucky">'+f.cards.map(c=>`<div class="chip">${c.position} <b>${c.card}・${c.orientation}</b></div>`).join('')+'</div>';
+    }
+    if(f.elements){
+      body+='<div class="lucky">'+Object.entries(f.elements).map(([k,v])=>`<div class="chip">${k} <b>${v}</b></div>`).join('')+'</div>';
+    }
+    if(f.teaser)body+=`<div class="teaser">${f.teaser}</div>`;
+
+    body+=ctaHTML(t);
+  }
+  $('out').innerHTML=`<div class="card">
+    <div class="tabs">${tabs}</div>
+    <div class="rtitle"><div class="ic">${t.icon||'占'}</div><h2>${t.name}</h2></div>
+    <p class="rdesc">${t.desc||''}</p>
+    ${body}
+  </div>`;
+}
+
+function ctaHTML(t){
+  // 販売はココナラで完結する（鑑定はトークルーム内で納品）。
+  // このサイトは無料診断で信頼を得てココナラへ送る集客装置。
+  // 解放コード方式・サイト内決済は廃止した（購入者はここへ戻ってこないため）。
+  const u=DATA.shopUrls||{};
+  const single=(u.single&&u.single[t.type])||u.profile||'';
+  const bundle=u.bundle||u.profile||'';
+  const btn=(url,cls,label)=>url
+    ? `<a class="cta ${cls}" href="${url}" target="_blank" rel="noopener">${label}</a>`
+    : `<button class="${cls}" disabled>準備中です</button>`;
+  return `<div class="paywall">
+    <p class="price">¥${DATA.priceSingle.toLocaleString()}</p>
+    <h3>${t.name} 深掘り鑑定</h3>
+    <p>結論・対処法・今後の流れまで、あなたのデータで書き下ろした鑑定書をお届けします。<br>
+    ご購入後、ココナラのトークルームで<b>鑑定書PDF</b>を納品します。</p>
+    ${btn(single,'gold','ココナラで受け取る')}
+  </div>
+  <div class="bundle">
+    <p class="price">¥${DATA.priceBundle.toLocaleString()}<span class="strike">¥${(DATA.priceSingle*DATA.types.length).toLocaleString()}</span></p>
+    <h3>5種類 完全鑑定セット</h3>
+    <p>姓名判断・星座・タロット・四柱推命・西洋占星術のすべての深掘り鑑定。<br>単品5つ分より¥${(DATA.priceSingle*DATA.types.length-DATA.priceBundle).toLocaleString()}お得です。</p>
+    ${btn(bundle,'','セットで受け取る')}
+  </div>`;
+}
+
+
+</script>
+</body>
+</html>

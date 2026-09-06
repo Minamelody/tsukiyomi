@@ -1,0 +1,61 @@
+# Render Blueprint — ツキヨミ 無料鑑定サイト
+#
+# 無料プラン構成。有料化せずに常時起動させるため、下の2点を組み合わせている。
+#   1. Web Service を free プランで動かす（750インスタンス時間/月。常時起動でも730時間なので枠内）
+#   2. 15分アクセスが無いとスリープするので、Cron Job で10分ごとに /healthz を叩いて起こし続ける
+#
+# リードの保存先は Google スプレッドシート（LEADS_WEBHOOK_URL）。
+# Render の無料 Postgres は期限付きで消えるため、無料構成では使わない。
+services:
+  - type: web
+    name: tsukiyomi
+    runtime: node
+    plan: free
+    region: singapore
+    buildCommand: npm install --omit=dev
+    startCommand: node src/server.js
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # 本番キーは Render ダッシュボードで手入力する（リポジトリに書かない）
+      - key: OPENAI_BASE_URL
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      # リードの送信先。Google Apps Script のウェブアプリURLを入れる。
+      # 未設定なら送信をスキップして鑑定は通常どおり動く（サイトは止まらない）。
+      - key: LEADS_WEBHOOK_URL
+        sync: false
+      # ココナラの出品URL。未設定のうちはCTAが「準備中」になる。
+      - key: COCONALA_PROFILE_URL
+        sync: false
+      - key: COCONALA_URL_SEIMEI
+        sync: false
+      - key: COCONALA_URL_SEIZA
+        sync: false
+      - key: COCONALA_URL_TAROT
+        sync: false
+      - key: COCONALA_URL_SHICHU
+        sync: false
+      - key: COCONALA_URL_ASTRO
+        sync: false
+      - key: COCONALA_URL_BUNDLE
+        sync: false
+
+  # スリープ回避。10分ごとに自分の /healthz を叩く（15分の無活動タイマーをリセットする）。
+  - type: cron
+    name: tsukiyomi-keepalive
+    runtime: node
+    plan: free
+    region: singapore
+    schedule: "*/10 * * * *"
+    buildCommand: npm install --omit=dev
+    startCommand: node tools/keepalive.js
+    envVars:
+      - key: SITE_URL
+        fromService:
+          name: tsukiyomi
+          type: web
+          property: hostport

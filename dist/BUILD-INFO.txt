@@ -1,0 +1,7 @@
+SITE_URL=https://Minamelody.github.io/tsukiyomi
+built_at=2026-09-06T01:29:11.561Z
+
+この dist は上記URLに固定されています（canonical / og:url / JSON-LD / robots.txt / sitemap.xml）。
+別のURLで公開する場合は、そのURLで再ビルドしてください:
+  SITE_URL=https://<公開URL> node tools/build-static.js
+再ビルドせずに置くと canonical が実在しないURLを指し、検索インデックスが空振りします。
