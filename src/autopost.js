@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Threads 全自動投稿ランナー。
+// Threads 全自動投稿ランナー（v2対応）。
 // 1回の実行で「その日のスロット1件」を投稿する。cron/schedule から1日2〜3回呼ぶ。
 //
 // 使い方:
@@ -8,11 +8,14 @@
 //
 // 重複防止のため投稿履歴を out/post-history.json に保存する。
 // 同一文面の再投稿はシャドウバンの主要因なので履歴は消さないこと。
+// v2: 文面は選日・時辰の実データで生成（senjitsu/rarity）。投稿後にカードを
+//     ベストエフォート生成（design/cards/out/<date>/slot<N>.png）。失敗しても投稿は成功扱い。
 
 const fs = require('fs');
 const path = require('path');
 const { planDay } = require('./threads-posts');
 const { ThreadsClient } = require('./threads-api');
+const { genCard } = require('./cards');
 
 const HIST_PATH = path.join(__dirname, '..', 'out', 'post-history.json');
 const MAX_HIST = 500;
@@ -41,13 +44,14 @@ async function main() {
 
   const history = loadHistory();
   const recentTexts = history.map(h => h.text);
-  const posts = planDay(date, perDay, recentTexts);
+  const posts = await planDay(date, perDay, recentTexts);
   const post = posts[slot % posts.length];
 
-  console.log(`[${date}] slot=${slot} type=${post.type}`);
+  console.log(`[${date}] slot=${slot} type=${post.type} tag=${post.tag}`);
   console.log('─'.repeat(40));
   console.log(post.text);
   console.log('─'.repeat(40));
+  if (post.cardSpec) console.log(`カードspec: ${JSON.stringify(post.cardSpec)}`);
 
   if (dryRun) { console.log('dry-run: 投稿しませんでした'); return; }
 
@@ -74,7 +78,15 @@ async function main() {
   const result = await client.publishText(post.text);
   console.log('投稿しました:', result.postId);
 
-  history.push({ date, slot, type: post.type, text: post.text, postId: result.postId, at: new Date().toISOString() });
+  // カードはベストエフォート（失敗しても投稿は成立している。画像投稿の配信は別フェーズ）
+  const cardPath = await genCard(date, slot, post.cardSpec);
+  if (cardPath) console.log('カード生成:', cardPath);
+
+  history.push({
+    date, slot, type: post.type, tag: post.tag, text: post.text,
+    postId: result.postId, cardPath: cardPath || null,
+    at: new Date().toISOString(),
+  });
   saveHistory(history);
 }
 

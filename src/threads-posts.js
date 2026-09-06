@@ -1,26 +1,20 @@
-// Threads投稿ジェネレータ。
-// 参考画像（runa_no_uranai）の「絵文字を置いていって」型を踏襲する。
+// Threads投稿ジェネレータ v2（2026-09-06 投稿品質改修）
 //
-// 効いている構造:
-//   1) 短い。3〜4行で読み切れる
-//   2) 「あなた」個人に向けた予言に見える（一般論・星座の話は刺さらない）
-//   3) 反応のハードルが最低（絵文字1つ置くだけ）→ コメントが伸びる
-//   4) コメントが伸びる → アルゴリズムに乗る → 表示が伸びる
+// v1 からの変更（R社長「もっと濃く・誘導は露骨でなく」指摘の実装）:
+//   - 5層構造（痛みの名指し / 暦・時間窓の限定 / 絵文字1個CTA / 選別の言葉 / 情景で約束）
+//   - 本文にURL・商品・実績数値は一切出さない。鑑定への誘導は「お伝えします」の1語に留める
+//   - T1（朝・選日型）は rarity.plan().useT1 の日のみ。単独ラベル日はT2へ
+//   - 時間窓は senjitsu.peak_window() の実データ（参考投稿の5:00〜8:59を流用しない）
+//   - カードspecを同梱（本文と同じデータから生成。本文とカードで文を繰り返さない）
+//   - 従来型（engagement/funnel）はフォールバック用に温存
 //
-// 設計方針（sssatankai の指摘を反映）:
-//   星座を前面に出さない。**具体的な悩みの場面**を名指しする。
-//   「会いたかったあの人にもうすぐ会える」のように、読んだ人が
-//   自分の状況だと思える固有のシーンを描く。
-//
-// 重要: 同一文面の量産はシャドウバン対象。組み合わせで大量のバリエーションを作る。
+// 重要: 日付・時刻を焼いた文面は当日限りで破棄。失敗枠の翌日流用禁止。
+//       同一文面の再投稿はシャドウバン対象。履歴（out/post-history.json）は消さないこと。
 
-// ─────────────────────────────────────────────
-// SCENES: 悩みの「場面」ごとの本文。
-// 読んだ人が「自分のことだ」と思える具体性を優先する。
-// tag は投稿の偏り防止用（同じ悩みを連投しない）。
-// ─────────────────────────────────────────────
+const { fetchDayFacts } = require('./senjitsu-bridge');
+
+// ── データプール（v1から継続） ──────────────────────────────────────────
 const SCENES = [
-  // ── 再会・復縁 ──
   { tag: 'reunion', lines: ['あなたが会いたかったあの人に、', 'もうすぐ会えます。'] },
   { tag: 'reunion', lines: ['もう終わったと思っていた縁が、', '向こうから戻ってきます。'] },
   { tag: 'reunion', lines: ['名前を思い出した人がいるなら、', 'その人からもうすぐ動きがあります。'] },
@@ -29,92 +23,254 @@ const SCENES = [
   { tag: 'reunion', lines: ['既読のまま止まっている画面。', 'あれは、あと少しで動きます。'] },
   { tag: 'reunion', lines: ['さよならを言えなかった相手と、', 'もう一度話す機会が来ます。'] },
   { tag: 'reunion', lines: ['あなたが諦めた連絡先。', '消さないでおいてください。'] },
-
-  // ── 片思い・関係の進展 ──
   { tag: 'love', lines: ['伝えられなかった気持ち、', '来週あたりに言える流れが来ます。'] },
   { tag: 'love', lines: ['あなたが「無理だ」と思っている相手。', '相手はそう思っていません。'] },
   { tag: 'love', lines: ['好きだと気づかれたくない人に、', 'もう気づかれています。'] },
   { tag: 'love', lines: ['あなたが選ばれないと思ってる場面で、', '実はあなたが最初に名前を出されています。'] },
   { tag: 'love', lines: ['何気ない連絡が1つ来ます。', 'あれを見逃さないでください。'] },
   { tag: 'love', lines: ['今の関係、動かないように見えて', '相手の方が先に限界を迎えます。'] },
-
-  // ── 我慢・報われなさ ──
   { tag: 'endure', lines: ['あなたが我慢して飲み込んだ言葉、', '無駄になっていません。'] },
   { tag: 'endure', lines: ['誰にも気づかれてないと思ってること。', 'ちゃんと見てる人がいます。'] },
   { tag: 'endure', lines: ['「私ばっかり」と思ってた時間の分が、', 'そろそろ返ってきます。'] },
   { tag: 'endure', lines: ['一人で抱えてたこと、', '来月には話せる相手が現れます。'] },
   { tag: 'endure', lines: ['あなたが黙って直してきたこと。', '気づいてた人が動き出します。'] },
   { tag: 'endure', lines: ['報われないと思ってた努力の、', '結果が出るのは急にです。'] },
-
-  // ── 停滞・動き出し ──
   { tag: 'move', lines: ['ずっと止まってた何かが、', '今夜から静かに動き出す人がいます。'] },
   { tag: 'move', lines: ['何も変わらないと思ってた毎日に、', '3日以内に切れ目が入ります。'] },
   { tag: 'move', lines: ['あなたが降りようとしていた場所。', 'あと一回だけ待ってください。'] },
   { tag: 'move', lines: ['止まっていたのは、', 'タイミングが揃うのを待っていたからです。'] },
   { tag: 'move', lines: ['近いうちに、大きく状況が動きます。'] },
   { tag: 'move', lines: ['同じ場所にいるように見えて、', 'あなたはもう半分抜け出しています。'] },
-
-  // ── 諦め・手放し ──
   { tag: 'giveup', lines: ['あなたが諦めかけてたこと、', '実はまだ、終わってません。'] },
   { tag: 'giveup', lines: ['選ばなかった道は、', 'まだ閉じていません。'] },
   { tag: 'giveup', lines: ['もう遅いと思っていること。', '期限はまだ来ていません。'] },
   { tag: 'giveup', lines: ['手放した方がいいと言われたもの。', 'あれはまだ持っていていいです。'] },
   { tag: 'giveup', lines: ['今かかっている重さは、', '手放す直前だからこそ出るものです。'] },
-
-  // ── 仕事・進路 ──
   { tag: 'work', lines: ['辞めようか迷っている人。', '答えは来月の半ばに出ます。'] },
   { tag: 'work', lines: ['評価されていないと感じている場所で、', 'あなたの名前が上がっています。'] },
   { tag: 'work', lines: ['今の環境が合わないと感じるのは、', 'あなたが次に進む準備ができたからです。'] },
   { tag: 'work', lines: ['声をかけられる話が来ます。', '断る前に一度だけ聞いてください。'] },
   { tag: 'work', lines: ['向いていないと思ってることの中に、', 'あなたが一番強い部分があります。'] },
   { tag: 'work', lines: ['頑張り方を、そろそろ変えていい時期です。'] },
-
-  // ── お金 ──
   { tag: 'money', lines: ['出ていくばかりだった流れが、', '入る方に切り替わります。'] },
   { tag: 'money', lines: ['諦めた金額が、', '別の形で戻ってくる人がいます。'] },
   { tag: 'money', lines: ['今月の後半、想定していなかった入りがあります。'] },
   { tag: 'money', lines: ['減らすことばかり考えていた人。', 'そこはもう十分です。'] },
-
-  // ── 人間関係・離れる縁 ──
   { tag: 'relation', lines: ['離れていく人がいます。', 'それは失うのではなく、席が空くだけです。'] },
   { tag: 'relation', lines: ['合わないと感じていた相手と、', '距離を置いていい時期に入りました。'] },
   { tag: 'relation', lines: ['あなたを軽く扱う人の影響力が、', 'これから急に弱まります。'] },
   { tag: 'relation', lines: ['言い返せなかった相手のこと。', 'あなたが動かなくても状況が変わります。'] },
   { tag: 'relation', lines: ['新しく入ってくる人がいます。', '思っているより早く会います。'] },
-
-  // ── 自分・疲れ ──
   { tag: 'self', lines: ['ちゃんとやれてないと思ってる人。', '見えてないだけで、進んでます。'] },
   { tag: 'self', lines: ['疲れているのは弱さではなく、', 'ずっと踏ん張ってきたからです。'] },
   { tag: 'self', lines: ['自分だけ遅れていると思っている人。', '順番が違うだけです。'] },
   { tag: 'self', lines: ['今夜、眠れない人がいるなら。', 'その考えごとは明日には軽くなります。'] },
   { tag: 'self', lines: ['あなたが変わりたいと思った日から、', 'もう始まっています。'] },
   { tag: 'self', lines: ['決めきれないのは、', 'まだ材料が揃ってないだけです。'] },
-
-  // ── 予兆・合図 ──
   { tag: 'sign', lines: ['流れが変わる合図は、', 'いつも小さく静かに来ます。'] },
   { tag: 'sign', lines: ['ここ数日、同じ数字を見た人。', 'あれは切り替わりの印です。'] },
   { tag: 'sign', lines: ['急に昔のことを思い出したなら、', 'それは片付く順番が来たからです。'] },
   { tag: 'sign', lines: ['今日ふと嫌な予感がした人。', '避けられる範囲のものです。'] },
 ];
 
-// 冒頭のフック（無くても成立するので空を混ぜる）
-const HOOKS = [
-  '正直に言います。',
-  '信じなくていいので、これだけ聞いてください。',
-  '今夜だけの話をします。',
-  '今日これを見た人へ。',
-  '先に言っておきます。',
-  'これ、見た人だけの話です。',
-  '静かに伝えます。',
-  '一度だけ言います。',
-  '当たってたら怖いので、軽く読んでください。',
-  '本当は書くか迷いました。',
-  '',
-  '',
-  '',
+// 絵文字を置かせる絵文字郡（毎日ローテーション）
+const EMOJIS = ['🐉', '🌙', '✨', '🔑', '🌸', '⭐️', '🕊', '🌊', '🍀', '💫'];
+
+// T2 用: 痛みの「原因の言い換え」（本文・1行目）
+const REASONS = ['古い流れ', '巡りの滞り', '切れかけの縁', '逆風', '思い込み', '相手の事情'];
+
+// T2/T3 用: 締めの一言（安心を渡す）
+const CLOSERS = [
+  '大丈夫、ちゃんと来てるから。',
+  'あなたは間に合っています。',
+  '焦らなくて大丈夫です。',
+  'ちゃんと見えてます。',
+  '順番は守られます。',
+  'もう少しだけ、待てば足ります。',
+  '近いうちに、動きが見えます。',
+  'そのままのあなたで大丈夫です。',
 ];
 
-// 絵文字を置かせるCTA。{e} に絵文字が入る
+// カード用フレーズ（本文と文を繰り返さない・tag別）
+// pain = カード中段の名指し / body = カード下段の情景
+const CARD_T2 = {
+  reunion: { pain: ['会いたい人に', '届く言葉がある。'], body: ['返事は', 'もう動き始めている。'] },
+  love:    { pain: ['気づかれたくない', 'あなたの気持ち。'], body: ['相手には', 'もう見えている。'] },
+  endure:  { pain: ['飲み込んできた', '言葉の分。'], body: ['返る時期に', '入っている。'] },
+  move:    { pain: ['止まっていた', '何かがある。'], body: ['今夜から', '静かに動き出す。'] },
+  giveup:  { pain: ['諦めかけた', 'あの場所。'], body: ['まだ', '閉じてはいない。'] },
+  work:    { pain: ['続けるか迷う', '今の場所。'], body: ['答えは', '来月の半ばに。'] },
+  money:   { pain: ['出ていくばかりの', '流れ。'], body: ['入る方に', '切り替わる。'] },
+  relation:{ pain: ['合わない人に', '縮こまる夜。'], body: ['席が空くと', '新しい人が来る。'] },
+  self:    { pain: ['頑張ってきた', 'あなたへ。'], body: ['ちゃんと', '進んでいる。'] },
+  sign:    { pain: ['同じ数字を', '見た夜。'], body: ['あれは', '切り替わりの印。'] },
+};
+// カード用フレーズ（t3用・本文とは別系統）
+const CARD_T3 = {
+  reunion: { body: ['終わった話は', 'もう一度、続きます。'] },
+  love:    { body: ['思っているより', 'あなたは選ばれています。'] },
+  endure:  { body: ['踏ん張った分は', '必ず返ってきます。'] },
+  move:    { body: ['止まっていたのは', '助走のためです。'] },
+  giveup:  { body: ['持っていていいものと', '手放すもの。'] },
+  work:    { body: ['名前は', 'もう上がっています。'] },
+  money:   { body: ['流れは', '入る方に変わります。'] },
+  relation:{ body: ['空いた席に', '新しい人が来ます。'] },
+  self:    { body: ['順番が違うだけ', '遅れてはいません。'] },
+  sign:    { body: ['小さな合図は', 'もう来ています。'] },
+};
+
+function rng(seed) {
+  let x = seed || 1;
+  return () => { x ^= x << 13; x >>>= 0; x ^= x >> 17; x ^= x << 5; x >>>= 0; return x / 4294967296; };
+}
+function hash(s) {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return h >>> 0;
+}
+
+// ── v2 ビルダー ─────────────────────────────────────────────────────────
+
+/** T1（朝・選日型。useT1の日のみ） */
+function buildT1(dateStr, facts, r, emoji) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const labels = facts.labels;
+  const wName = facts.windowName || '';
+  const wLabel = facts.windowLabel || '';
+  // 単独の選日に「重なる」は使えない（年37日発生する）。ラベル数で文言を分ける。
+  // 単独側で希少さを主張しないこと: 一粒万倍日単独は年37日（月3回）あり「年に何度もない」は嘘になる。
+  const head = labels.length >= 2
+    ? [`${labels.join(' × ')}が`, '重なる特別な日。']
+    : [`${labels[0]}にあたります。`, '何かを始めるのに向く日です。'];
+  const lines = [
+    `${m}月${d}日は、`,
+    ...head,
+    '',
+    '気が最も濃くなるのは',
+    `${wName}（${wLabel}）だけ。`,
+    '',
+    `「${emoji}」を置いてくださった方に、`,
+    'いま視えているものを',
+    '正直にお返しします。',
+  ];
+  const wd = '日月火水木金土'[new Date(Date.UTC(y, m - 1, d)).getUTCDay()];
+  const cardSpec = {
+    template: 't1',
+    senjitsu: labels.join(' × '),
+    date_label: `${y}年${m}月${d}日（${wd}）`,
+    window: wLabel,
+    window_name: wName,
+    emoji,
+  };
+  return { type: 't1', tag: 'koyomi', emoji, text: lines.join('\n'), cardSpec };
+}
+
+/** T2（昼・痛み名指し型） */
+function buildT2(dateStr, r, emoji, avoidTags = []) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  let pool = SCENES.filter(s => !avoidTags.includes(s.tag));
+  if (!pool.length) pool = SCENES;
+  const scene = pool[Math.floor(r() * pool.length)];
+  const reason = REASONS[Math.floor(r() * REASONS.length)];
+  const closerTails = [
+    ['置けた人から順に、', 'お伝えします。'],
+    ['置いてくれた人から、', '順に見ていきます。'],
+    ['置いた人から一つずつ、', 'お返しします。'],
+  ];
+  const tail = closerTails[Math.floor(r() * closerTails.length)];
+  const lines = [
+    ...scene.lines,
+    '',
+    `それ、${reason}が`,
+    '居座っているだけかもしれません。',
+    '',
+    `${m}月${d}日、${emoji}を`,
+    ...tail,
+  ];
+  const cardPh = CARD_T2[scene.tag] || CARD_T2.self;
+  const cardSpec = { template: 't2', pain: cardPh.pain, body: cardPh.body, emoji };
+  return { type: 't2', tag: scene.tag, emoji, text: lines.join('\n'), cardSpec };
+}
+
+/** T3（夜・独白型） */
+function buildT3(dateStr, r, emoji, avoidTags = []) {
+  let pool = SCENES.filter(s => !avoidTags.includes(s.tag));
+  if (!pool.length) pool = SCENES;
+  const scene = pool[Math.floor(r() * pool.length)];
+  const closer = CLOSERS[Math.floor(r() * CLOSERS.length)];
+  const lines = [
+    'この時間に、',
+    'これを読んでいる人へ。',
+    '',
+    ...scene.lines,
+    '',
+    'その感覚は',
+    '当たっています。',
+    '',
+    `「${emoji}」だけ置いてください。`,
+    '理由は聞きません。',
+    '',
+    closer,
+  ];
+  const cardPh = CARD_T3[scene.tag] || CARD_T3.self;
+  const cardSpec = { template: 't3', hook: ['静かな夜に、', '届く言葉。'], body: cardPh.body, emoji };
+  return { type: 't3', tag: scene.tag, emoji, text: lines.join('\n'), cardSpec };
+}
+
+/**
+ * 1日分の投稿計画（v2）。slot0=朝 / slot1=昼 / slot2=夜。
+ * slot0: T1（useT1の日のみ）またはT2。slot1: T2。slot2: T3。
+ * 選日モジュールが使えない環境では従来型（engagement/funnel）へフォールバック。
+ */
+async function planDay(date, count = 3, recent = []) {
+  const [y, m, d] = date.split('-').map(Number);
+  const facts = await fetchDayFacts(y, m, d);
+  if (!facts) return planDayLegacy(date, count, recent);
+
+  const used = new Set(recent);
+  const usedTags = [];
+  const usedEmojis = [];
+  const pickEmoji = (r) => {
+    let pool = EMOJIS.filter(e => !usedEmojis.includes(e));
+    if (!pool.length) pool = EMOJIS;
+    const e = pool[Math.floor(r() * pool.length)];
+    usedEmojis.push(e);
+    return e;
+  };
+
+  const posts = [];
+  const kinds = (facts.useT1 ? ['t1', 't2', 't3'] : ['t2', 't2', 't3']);
+  for (let i = 0; i < count; i++) {
+    const kind = kinds[i] || 't2';
+    let post = null;
+    for (let attempt = 0; attempt < 300; attempt++) {
+      const seed = `${date}|${i}|${attempt}`;
+      const r = rng(hash(seed));
+      const emoji = pickEmoji(r);
+      const cand = kind === 't1'
+        ? buildT1(date, facts, r, emoji)
+        : kind === 't3'
+          ? buildT3(date, r, emoji, usedTags)
+          : buildT2(date, r, emoji, usedTags);
+      post = cand;
+      if (!used.has(cand.text)) break;
+    }
+    used.add(post.text);
+    if (post.tag !== 'koyomi') usedTags.push(post.tag);
+    posts.push({ ...post, slot: i });
+  }
+  return posts;
+}
+
+// ── 従来型（フォールバック用） ───────────────────────────────────────────
+
+const HOOKS = [
+  '正直に言います。', '信じなくていいので、これだけ聞いてください。',
+  '今夜だけの話をします。', '今日これを見た人へ。', '先に言っておきます。',
+  'これ、見た人だけの話です。', '静かに伝えます。', '一度だけ言います。',
+  '当たってたら怖いので、軽く読んでください。', '本当は書くか迷いました。', '', '', '',
+];
+
 const CTA_TEMPLATES = [
   '受け取る人は【{e}】を置いていって。',
   '信じる人は【{e}】を置いていってください。',
@@ -128,62 +284,23 @@ const CTA_TEMPLATES = [
   '思い当たる人は、何も書かずに【{e}】だけ。',
 ];
 
-const EMOJIS = ['🐉', '🌙', '✨', '🔑', '🌸', '⭐️', '🕊', '🌊', '🍀', '💫'];
-
-// 締めの一言（安心を渡して読後感を良くする）
-const CLOSERS = [
-  '大丈夫、ちゃんと来てるから。',
-  'あなたは間に合っています。',
-  '焦らなくて大丈夫です。',
-  'ちゃんと見えてます。',
-  '順番は守られます。',
-  'もう少しだけ、待てば足ります。',
-  '',
-  '',
-  '',
-  '',
-];
-
-function rng(seed) {
-  let x = seed || 1;
-  return () => { x ^= x << 13; x >>>= 0; x ^= x >> 17; x ^= x << 5; x >>>= 0; return x / 4294967296; };
-}
-function hash(s) {
-  let h = 2166136261;
-  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
-  return h >>> 0;
-}
-
-/**
- * 悩みに当てる「絵文字置き型」投稿を生成する（メインの型）
- * @param {string} seedStr
- * @param {string[]} avoidTags 直近で使った悩みタグ（連投を避ける）
- */
 function engagementPost(seedStr, avoidTags = []) {
   const r = rng(hash(seedStr));
   const pick = a => a[Math.floor(r() * a.length)];
-
-  // 直近と同じ悩みジャンルを避ける
   let pool = SCENES.filter(s => !avoidTags.includes(s.tag));
   if (!pool.length) pool = SCENES;
   const scene = pool[Math.floor(r() * pool.length)];
-
   const emoji = pick(EMOJIS);
   const hook = pick(HOOKS);
   const cta = pick(CTA_TEMPLATES).replace(/\{e\}/g, emoji);
   const closer = pick(CLOSERS);
-
   const lines = [];
   if (hook) { lines.push(hook, ''); }
   lines.push(...scene.lines, '', cta);
   if (closer) lines.push('', closer);
-
   return { type: 'engagement', tag: scene.tag, emoji, text: lines.join('\n') };
 }
 
-/**
- * 無料鑑定への誘導投稿（変換用・頻度は低く保つ）
- */
 const FUNNEL_OPEN = [
   '生年月日だけで、今のあなたの流れを見ます。',
   '今日は無料で数名だけ見ます。',
@@ -211,17 +328,12 @@ function funnelPost(seedStr) {
   return { type: 'funnel', tag: 'funnel', emoji, text: [open, '', ...how].join('\n') };
 }
 
-/**
- * 1日分の投稿計画。
- * 絵文字置き型を主軸にし、1日1回だけ誘導を混ぜる。
- * recent に過去の本文を渡すと重複を回避する（シャドウバン対策・必須）。
- */
-function planDay(date, count = 3, recent = []) {
+/** v1互換（選日モジュール不在時のフォールバック） */
+function planDayLegacy(date, count = 3, recent = []) {
   const posts = [];
   const used = new Set(recent);
   const recentTags = [];
   for (let i = 0; i < count; i++) {
-    // 最後の1枠だけ誘導。それ以外は悩みに当てる投稿
     const kind = (i === count - 1 && count > 1) ? 'funnel' : 'engagement';
     let post = null;
     for (let attempt = 0; attempt < 300; attempt++) {
@@ -237,4 +349,4 @@ function planDay(date, count = 3, recent = []) {
   return posts;
 }
 
-module.exports = { engagementPost, funnelPost, planDay, SCENES };
+module.exports = { engagementPost, funnelPost, planDay, planDayLegacy, SCENES };
