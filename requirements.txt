@@ -1,0 +1,7 @@
+# 納品ツール（鑑定書PDF生成）
+weasyprint
+reportlab
+Pillow
+
+# 選日算出（src/senjitsu.py — 二十四節気の計算に使用）
+ephem>=4.2
