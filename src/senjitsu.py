@@ -177,6 +177,37 @@ def lucky_labels(d: datetime.date):
     return labels
 
 
+# 天赦日: 節月と日の干支の組み合わせ。百事を赦す最上の吉日。
+#   春(節月1〜3)=戊寅 / 夏(節月4〜6)=甲午 / 秋(節月7〜9)=戊申 / 冬(節月10〜12)=甲子
+TENSHA = {1: "戊寅", 2: "戊寅", 3: "戊寅",
+          4: "甲午", 5: "甲午", 6: "甲午",
+          7: "戊申", 8: "戊申", 9: "戊申",
+          10: "甲子", 11: "甲子", 12: "甲子"}
+
+
+def is_tensha(d: datetime.date) -> bool:
+    return day_kanshi(d) == TENSHA[setsu_month(d)]
+
+
+def type_a_facts(d: datetime.date) -> list:
+    """型A(暦フック型)に使う暦要素。当日に成立するものをこの順で返す。
+    意味の文はJS側の固定辞書が持つ（ここは判定だけ）。"""
+    out = []
+    if is_tensha(d):
+        out.append("天赦日")
+    if is_ichiryu(d):
+        out.append("一粒万倍日")
+    if is_boso(d):
+        out.append("母倉日")
+    if is_tenon(d):
+        out.append("天恩日")
+    if day_shi(d) == "寅":
+        out.append("寅の日")
+    if day_shi(d) == "巳":
+        out.append("巳の日")
+    return out
+
+
 # 十二時辰（不定時法ではなく現行の定時法配当）。
 # 「その日の十二支と同じ刻」はその日の気が最も濃い時間、という暦の理屈が立つ。
 # 参考投稿の「5:00〜8:59」は暦の裏付けがない任意の窓なので、代わりにこれを使う。

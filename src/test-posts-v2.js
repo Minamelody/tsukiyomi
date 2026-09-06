@@ -1,5 +1,6 @@
-// src/test-posts-v2.js — 投稿ジェネレータv2の回帰テスト（投稿は行わない）
+// src/test-posts-v2.js — 投稿ジェネレータの回帰テスト（型A/B/D・投稿は行わない）
 // 実行: node src/test-posts-v2.js  → すべて PASS で exit 0
+// （旧T1/T2/T3から型A/B/Dへ置換。ファイル名は歴史的経緯で -v2 のまま）
 
 const { planDay } = require('./threads-posts');
 
@@ -9,100 +10,81 @@ function ok(cond, name) {
   else { fail++; console.log(`  NG   ${name}`); }
 }
 
-function maxLineLen(text) {
-  let mx = 0;
-  for (const line of text.split('\n')) mx = Math.max(mx, [...line].length);
-  return mx;
-}
+// キャラ設定＋運用者の声を弾く禁止語（返信specと共用）。投稿本文にも同じゲートをかける。
+const FORBIDDEN = ['!', '！', '笑', 'よければ', 'どうぞ', '気になりますよね',
+  '5種', '5つ', 'まとめて', 'ぜひ', 'お試しください', '参考に',
+  '必ず', '絶対', '保証', '霊視', '当たります', '無料', 'URL', 'http'];
 
 async function main() {
-  console.log('1. T1対象日（useT1=true: 2026-09-06 3種重なり）');
+  console.log('1. 型A/B/D が3本生成（2026-09-06 三重日）');
+  const triple = await planDay('2026-09-06', 3, []);
+  ok(triple.length === 3, '3本生成');
+  ok(triple[0].type === 'type_a', `slot0=型A（実際: ${triple[0].type}）`);
+  ok(triple[1].type === 'type_b', `slot1=型B（実際: ${triple[1].type}）`);
+  ok(triple[2].type === 'type_d', `slot2=型D（実際: ${triple[2].type}）`);
+
+  console.log('2. 型A（暦フック）の構造');
   {
-    const posts = await planDay('2026-09-06', 3, []);
-    ok(posts.length === 3, '3本生成');
-    ok(posts[0].type === 't1', `slot0=T1（実際: ${posts[0].type}）`);
-    ok(posts[0].cardSpec && posts[0].cardSpec.senjitsu.includes('一粒万倍日'), 'cardSpecに一粒万倍日');
-    ok(posts[0].cardSpec.window_name === '未の刻' && posts[0].cardSpec.window === '13:00〜14:59', `peak_window連携（${posts[0].cardSpec.window_name}/${posts[0].cardSpec.window}）`);
-    ok(posts[0].cardSpec.senjitsu.length <= 34, `senjitsu上限34字（${posts[0].cardSpec.senjitsu.length}）`);
-    ok(posts[0].cardSpec.window_name.length <= 8, `window_name上限8字（${posts[0].cardSpec.window_name.length}）`);
-    ok(posts[1].type === 't2' && posts[2].type === 't3', 'slot1=T2 / slot2=T3');
-    ok(maxLineLen(posts[0].text) <= 22, `T1行長上限22（実測 ${maxLineLen(posts[0].text)}）`);
-    ok(!/https?:|URL|1000名|無料/.test(posts[0].text), '本文にURL/実績数値/「無料」なし');
-    console.log('  --- slot0本文 ---'); console.log(posts[0].text.split('\n').map(l => '  ' + l).join('\n'));
+    const a = triple[0];
+    ok(/👉/.test(a.text), '根拠👉あり');
+    ok(a.cardSpec && a.cardSpec.senjitsu.includes('一粒万倍日'), 'cardSpecに暦名');
+    ok(/重なる日/.test(a.text), '三重日は「重なる日」');
+    console.log('  --- 型A本文 ---'); console.log(a.text.split('\n').map(l => '  ' + l).join('\n'));
   }
 
-  console.log('2. T1対象外の日（useT1=false: 2026-09-10 ラベルなし）');
+  console.log('3. 型B（12星座）の構造');
   {
-    const posts = await planDay('2026-09-10', 3, []);
-    ok(posts[0].type === 't2', `slot0=T2にフォールバック（実際: ${posts[0].type}）`);
-    ok(!posts[0].cardSpec || posts[0].cardSpec.template === 't2', 'cardSpecはt2');
+    const b = triple[1];
+    ok(/当たってましたか/.test(b.text), '問い「当たってた？」あり');
+    ok(b.cardSpec && Array.isArray(b.cardSpec.zodiac) && b.cardSpec.zodiac.length === 12, `zodiac 12件（${b.cardSpec.zodiac.length}）`);
   }
 
-  console.log('3. 一粒万倍日のみ（2026-09-07）→ T1かつ単一ラベル');
+  console.log('4. 型D（診断）の構造');
   {
-    const posts = await planDay('2026-09-07', 3, []);
-    ok(posts[0].type === 't1', `slot0=T1（実際: ${posts[0].type}）`);
-    ok(posts[0].cardSpec.senjitsu === '一粒万倍日', `senjitsu=一粒万倍日（${posts[0].cardSpec.senjitsu}）`);
+    const d = triple[2];
+    ok(/余り0/.test(d.text) && /余り1/.test(d.text) && /余り2/.test(d.text), '余り0/1/2分岐あり');
+    ok(/どのタイプ/.test(d.text), '問い「どのタイプ？」あり');
   }
 
-  console.log('4. 決定性（同じ日は同じ文面）');
+  console.log('5. 禁止語が混入しない（通年スポットチェック）');
+  {
+    let bad = 0;
+    for (const day of ['2026-09-06', '2026-09-07', '2026-09-10', '2026-03-05', '2026-01-01', '2026-12-16', '2026-10-01']) {
+      const posts = await planDay(day, 3, []);
+      for (const p of posts) for (const w of FORBIDDEN) {
+        if (p.text.includes(w)) { bad++; console.log(`    混入: ${day} ${p.type} -> ${w}`); }
+      }
+    }
+    ok(bad === 0, `禁止語なし（混入: ${bad}）`);
+  }
+
+  console.log('6. 決定性（同じ日は同じ文面）');
   {
     const a = await planDay('2026-09-06', 3, []);
     const b = await planDay('2026-09-06', 3, []);
     ok(a[0].text === b[0].text, '再実行で同一文面');
   }
 
-  console.log('5. 履歴による重複回避（recentを渡すと別文面）');
-  {
-    const a = await planDay('2026-09-06', 3, []);
-    const b = await planDay('2026-09-06', 3, [a[0].text]);
-    ok(b[0].text !== a[0].text, '同一文面を回避');
-  }
-
-  console.log('6. 全テンプレのカードspec形状（t2/t3: 行長≤22・pain/body 2行）');
+  console.log('7. 暦要素ゼロの日（2026-09-10 は typeA=[]）は型Bで埋める');
   {
     const posts = await planDay('2026-09-10', 3, []);
-    for (const p of posts) {
-      const spec = p.cardSpec || {};
-      if (p.type === 't2') {
-        ok(spec.template === 't2' && Array.isArray(spec.pain) && Array.isArray(spec.body), 't2 spec形状');
-        ok([...spec.pain.join('')].length <= 22, `t2 pain行長（${[...spec.pain.join('')].length}）`);
-      }
-      if (p.type === 't3') {
-        ok(spec.template === 't3' && spec.hook.length === 2 && spec.body.length === 2, 't3 spec形状');
-        ok(!spec.body.join('').includes(p.text), 't3 カードbodyが本文と重複しない');
-      }
-    }
+    ok(posts[0].type === 'type_b', `slot0=型Bにフォールバック（実際: ${posts[0].type}）`);
   }
 
-  // 7. T1の文言がラベル数に応じて成立するか（単独日に「重なる」は日本語破綻・年37日発生）
-  console.log('7. T1文言のラベル数分岐');
+  console.log('8. 通年で未定義値・破綻が出ない（型A/B/Dすべて）');
   {
-    const multi = await planDay('2026-09-06', 3, []);   // 3ラベル
-    ok(/重なる特別な日/.test(multi[0].text), '複数ラベルは「重なる」を使う');
-
-    const single = await planDay('2026-09-07', 3, []);  // 一粒万倍日のみ
-    ok(!/が\n重なる/.test(single[0].text), '単独ラベルで「が重なる」を出さない');
-    ok(!/年に何度もない|年に数回/.test(single[0].text),
-       '単独ラベルで希少さを主張しない（一粒万倍日単独は年37日）');
-
-    // 通年で未定義値・破綻が出ないこと
-    let t1count = 0, broken = 0;
+    let broken = 0;
     for (let m = 1; m <= 12; m++) {
-      const dim = new Date(2026, m, 0).getDate();
+      const dim = new Date(Date.UTC(2026, m, 0)).getUTCDate();
       for (let d = 1; d <= dim; d++) {
         const day = `2026-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
         const posts = await planDay(day, 3, []);
-        const s0 = posts[0];
-        if (s0.cardSpec && s0.cardSpec.template === 't1') {
-          t1count++;
-          if (/undefined|NaN|null/.test(s0.text)) broken++;
-          if (/が\n重なる/.test(s0.text) && !/×/.test(s0.text)) broken++;
+        for (const p of posts) {
+          if (!p.text || /undefined|NaN|null/.test(p.text)) broken++;
         }
       }
     }
-    ok(t1count === 79, `T1は年79日だけ出る（実際: ${t1count}）`);
-    ok(broken === 0, `通年でT1文言の破綻なし（破綻: ${broken}）`);
+    ok(broken === 0, `通年で破綻なし（破綻: ${broken}）`);
   }
 
   console.log(`\n結果: ${pass} PASS / ${fail} FAIL`);

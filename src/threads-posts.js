@@ -217,10 +217,126 @@ function buildT3(dateStr, r, emoji, avoidTags = []) {
   return { type: 't3', tag: scene.tag, emoji, text: lines.join('\n'), cardSpec };
 }
 
+// ── 型A: 暦名→意味の固定辞書（計算はコード・語りは辞書） ──────────────────
+const TYPE_A_MEANINGS = {
+  '天赦日': '天地がすべてを赦す日',
+  '一粒万倍日': '種をまけば万倍になる日',
+  '母倉日': '母が子を慈しむ日',
+  '天恩日': '天の恵みを受ける日',
+  '寅の日': '力が満ち、動き出す日',
+  '巳の日': '金運を呼ぶ日',
+};
+const TYPE_A_CONTRARIAN = [
+  'でも、良いことも苦労も、同じく万倍になるそうです。',
+  'でも、始めるのが「本当に欲しいもの」かは、自分次第です。',
+  'ただ、誰かの手を借りなければ、種は芽を出しません。',
+  'ただ、急ぐとその分、取りこぼしも増えるように思います。',
+];
+const TYPE_A_ACTIONS = [
+  'だから今日は、静かに過ごそうと思います。',
+  'だから今日は、一つだけ準備を済ませておきます。',
+  'だから今日は、衝動買いをやめておきます。',
+  'だから今日のうちに、机の上を整えておきます。',
+];
+const TYPE_A_QUESTIONS = [
+  'あなたは明日、何かを始める予定はありますか。',
+  'あなたが明日、始めたいと思っていることは何ですか。',
+  '明日、始めたいこと、ありますか。',
+];
+
+// ── 型B: 12星座の一言（画像カード用。本文には書かない） ──────────────────
+const ZODIAC_LINES = [
+  ['牡羊座', '迷ったら進む'],
+  ['牡牛座', '焦らずに待つ'],
+  ['双子座', '話せば軽くなる'],
+  ['蟹座',   '家族が力になる'],
+  ['獅子座', '前に出ていい'],
+  ['乙女座', '細やかさが光る'],
+  ['天秤座', '相手に任せる'],
+  ['蠍座',   '深く見る日'],
+  ['射手座', '遠くが呼ぶ'],
+  ['山羊座', '積み上げが効く'],
+  ['水瓶座', '常識を外す'],
+  ['魚座',   '直感が鋭い'],
+];
+const TYPE_B_ONELINERS = [
+  '今日の一言『焦らない人から、順に満ちていく。』',
+  '今日の一言『決めるのは、いつもあなたです。』',
+  '今日の一言『静かな日に、答えは下りてきます。』',
+];
+
+// ── 型D: 生まれた日を3で割った余りの診断 ─────────────────────────────────
+const TYPE_D_BRANCHES = [
+  { r: '余り0', name: '直感タイプ', line: '迷ったときは、最初に思いついた方が正解になりやすい。' },
+  { r: '余り1', name: '計画タイプ', line: '段取りを整えるほど、力が伸びていく。' },
+  { r: '余り2', name: '共感タイプ', line: '人の気持ちが、言葉にしなくても読める。' },
+];
+
+/** 型A（朝・暦フック型）。逆張り＋行動宣言＋問いが返信を生む。 */
+function buildTypeA(dateStr, facts, r) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const items = (facts.typeAFacts || []).slice(0, 4);
+  const contrarian = TYPE_A_CONTRARIAN[Math.floor(r() * TYPE_A_CONTRARIAN.length)];
+  const action = TYPE_A_ACTIONS[Math.floor(r() * TYPE_A_ACTIONS.length)];
+  const question = TYPE_A_QUESTIONS[Math.floor(r() * TYPE_A_QUESTIONS.length)];
+
+  const labels = items.join('×');
+  const head = items.length >= 2
+    ? [`${m}月${d}日は、`, `${labels}が`, '重なる日。']
+    : [`${m}月${d}日は、`, `${items[0]}にあたる日。`];
+
+  const lines = [
+    ...head,
+    '',
+    ...items.map(k => `👉 ${k}＝${TYPE_A_MEANINGS[k]}`),
+    '',
+    contrarian,
+    '',
+    action,
+    '',
+    question,
+  ];
+  const cardSpec = {
+    template: 'koyomi',
+    date: `${m}月${d}日`,
+    senjitsu: labels,
+    items: items.map(k => ({ name: k, meaning: TYPE_A_MEANINGS[k] })),
+  };
+  return { type: 'type_a', tag: 'koyomi', text: lines.join('\n'), cardSpec };
+}
+
+/** 型B（昼・12星座＋返信誘導型）。本文3〜4行＋「当たってた？」。 */
+function buildTypeB(dateStr, r) {
+  const oneliner = TYPE_B_ONELINERS[Math.floor(r() * TYPE_B_ONELINERS.length)];
+  const lines = [
+    '今日の12星座、静かに読み解きます。',
+    '',
+    oneliner,
+    '',
+    'あなたの星座、当たってましたか。',
+  ];
+  const cardSpec = { template: 'seiza', zodiac: ZODIAC_LINES };
+  return { type: 'type_b', tag: 'seiza', text: lines.join('\n'), cardSpec };
+}
+
+/** 型D（週1・診断ミニ型）。余り診断で「自分の結果を返信したくなる」構造。 */
+function buildTypeD(dateStr, r) {
+  const lines = [
+    '生まれた日を3で割った余りで、',
+    'あなたの「決め方」が分かります。',
+    '',
+    ...TYPE_D_BRANCHES.map(b => `${b.r}＝${b.name}（${b.line}）`),
+    '',
+    'あなたは、どのタイプでしたか。',
+  ];
+  const cardSpec = { template: 'shindan', branches: TYPE_D_BRANCHES };
+  return { type: 'type_d', tag: 'shindan', text: lines.join('\n'), cardSpec };
+}
+
 /**
- * 1日分の投稿計画（v2）。slot0=朝 / slot1=昼 / slot2=夜。
- * slot0: T1（useT1の日のみ）またはT2。slot1: T2。slot2: T3。
- * 選日モジュールが使えない環境では従来型（engagement/funnel）へフォールバック。
+ * 1日分の投稿計画（v3・型A/B/D）。slot0=朝(型A暦) / slot1=昼(型B12星座) / slot2=型D(診断)。
+ * 型C(自己開示・21時)はR社長の手動ストックのため対象外。
+ * 選日モジュールが使えない・暦要素がゼロの日は、型Aを型Bで埋める／従来型へフォールバック。
  */
 async function planDay(date, count = 3, recent = []) {
   const [y, m, d] = date.split('-').map(Number);
@@ -228,35 +344,26 @@ async function planDay(date, count = 3, recent = []) {
   if (!facts) return planDayLegacy(date, count, recent);
 
   const used = new Set(recent);
-  const usedTags = [];
-  const usedEmojis = [];
-  const pickEmoji = (r) => {
-    let pool = EMOJIS.filter(e => !usedEmojis.includes(e));
-    if (!pool.length) pool = EMOJIS;
-    const e = pool[Math.floor(r() * pool.length)];
-    usedEmojis.push(e);
-    return e;
-  };
-
+  const kinds = ['type_a', 'type_b', 'type_d'];  // slot0/1/2
   const posts = [];
-  const kinds = (facts.useT1 ? ['t1', 't2', 't3'] : ['t2', 't2', 't3']);
-  for (let i = 0; i < count; i++) {
-    const kind = kinds[i] || 't2';
+  for (let i = 0; i < Math.min(count, kinds.length); i++) {
+    if (kinds[i] === 'type_a' && (!facts.typeAFacts || !facts.typeAFacts.length)) {
+      kinds[i] = 'type_b';  // 暦要素ゼロの日は型Aを作れない → 型Bで埋める
+    }
     let post = null;
     for (let attempt = 0; attempt < 300; attempt++) {
       const seed = `${date}|${i}|${attempt}`;
       const r = rng(hash(seed));
-      const emoji = pickEmoji(r);
-      const cand = kind === 't1'
-        ? buildT1(date, facts, r, emoji)
-        : kind === 't3'
-          ? buildT3(date, r, emoji, usedTags)
-          : buildT2(date, r, emoji, usedTags);
+      const kind = kinds[i];
+      const cand = kind === 'type_a'
+        ? buildTypeA(date, facts, r)
+        : kind === 'type_b'
+          ? buildTypeB(date, r)
+          : buildTypeD(date, r);
       post = cand;
       if (!used.has(cand.text)) break;
     }
     used.add(post.text);
-    if (post.tag !== 'koyomi') usedTags.push(post.tag);
     posts.push({ ...post, slot: i });
   }
   return posts;

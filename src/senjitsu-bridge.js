@@ -23,7 +23,7 @@ function fetchDayFacts(y, m, d) {
     `d = datetime.date(${y},${m},${d})`,
     'p = rarity.plan(d)',
     'w = senjitsu.peak_window(d)',
-    'print(json.dumps({"labels": p.get("labels") or [], "useT1": bool(p.get("use_T1")), "tier": p.get("tier"), "windowName": w["name"] if w else None, "windowLabel": w["label"] if w else None}, ensure_ascii=False))',
+    'print(json.dumps({"labels": p.get("labels") or [], "useT1": bool(p.get("use_T1")), "tier": p.get("tier"), "typeAFacts": senjitsu.type_a_facts(d), "shi": senjitsu.day_shi(d), "windowName": w["name"] if w else None, "windowLabel": w["label"] if w else None}, ensure_ascii=False))',
   ].join('\n');
 
   return new Promise((resolve) => {
