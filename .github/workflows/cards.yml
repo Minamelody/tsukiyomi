@@ -47,7 +47,9 @@ jobs:
         # カード描画に必須。無いと日本語が豆腐になる（gen_cards.py --check-env で検査）
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq fonts-noto-cjk fonts-noto-color-emoji
+          # Light/DemiLight は fonts-noto-cjk ではなく -extra 側に入っている。
+          # gen_cards.py はロゴと数字に Light を使うので extra が必須。
+          sudo apt-get install -y -qq fonts-noto-cjk fonts-noto-cjk-extra fonts-noto-color-emoji
 
       - name: Font preflight
         run: python3 design/cards/gen_cards.py --check-env
