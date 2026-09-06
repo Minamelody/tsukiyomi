@@ -10,6 +10,8 @@
 // 同一文面の再投稿はシャドウバンの主要因なので履歴は消さないこと。
 // v2: 文面は選日・時辰の実データで生成（senjitsu/rarity）。投稿後にカードを
 //     ベストエフォート生成（design/cards/out/<date>/slot<N>.png）。失敗しても投稿は成功扱い。
+// v2.2: カードがPagesで配信済み（https://minamelody.github.io/tsukiyomi/cards/<date>/slot<N>.png が200）なら
+//       画像付きで投稿する。未配信ならテキストのみ（自己回復・投稿を止めない）。
 
 const fs = require('fs');
 const path = require('path');
@@ -19,6 +21,7 @@ const { genCard } = require('./cards');
 
 const HIST_PATH = path.join(__dirname, '..', 'out', 'post-history.json');
 const MAX_HIST = 500;
+const CARD_PUBLIC_BASE = process.env.CARD_PUBLIC_BASE || 'https://minamelody.github.io/tsukiyomi/cards';
 
 function loadHistory() {
   try { return JSON.parse(fs.readFileSync(HIST_PATH, 'utf8')); }
@@ -32,6 +35,19 @@ function saveHistory(h) {
 function arg(name, def) {
   const i = process.argv.indexOf(`--${name}`);
   return i > -1 ? (process.argv[i + 1] ?? true) : def;
+}
+
+/** カードの公開URLが配信済みか（200）を確認する。配信済みならURLを返す */
+async function publishedCardUrl(date, slot) {
+  if (process.argv.includes('--dry-run')) return null;
+  const url = `${CARD_PUBLIC_BASE}/${date}/slot${slot}.png`;
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 6000);
+    const res = await fetch(url, { method: 'HEAD', signal: ctrl.signal });
+    clearTimeout(t);
+    return res.ok ? url : null;
+  } catch { return null; }
 }
 
 async function main() {
@@ -75,8 +91,9 @@ async function main() {
     }
   } catch (e) { console.warn('投稿枠の確認に失敗（続行します）:', e.message); }
 
-  const result = await client.publishText(post.text);
-  console.log('投稿しました:', result.postId);
+  const imageUrl = await publishedCardUrl(date, slot);
+  const result = await client.publishText(post.text, imageUrl);
+  console.log('投稿しました:', result.postId, imageUrl ? `（画像付き: ${imageUrl}）` : '（テキストのみ）');
 
   // カードはベストエフォート（失敗しても投稿は成立している。画像投稿の配信は別フェーズ）
   const cardPath = await genCard(date, slot, post.cardSpec);

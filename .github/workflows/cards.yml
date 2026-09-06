@@ -1,0 +1,70 @@
+# 翌日分の投稿カードを生成して Pages で配信する。
+#
+# Threads API は画像に公開URLを要求するので、カードは投稿より先に配信されていないと
+# 画像付き投稿にできない。投稿時に push→ビルド待ちを挟むとビルドの遅延や失敗が
+# そのまま投稿の失敗になるため、前日に配信まで済ませておく。
+#
+# 生成物は dist/cards/<date>/ に置く（Pages が配信するのは dist/ 配下だけ）。
+# コミットすると pages.yml が push で走り、配信まで自動で進む。
+
+name: Generate tomorrow's post cards
+
+on:
+  schedule:
+    # 22:00 JST = 13:00 UTC（前日のうちに翌日分を用意する）
+    - cron: '0 13 * * *'
+  workflow_dispatch:
+    inputs:
+      date:
+        description: '生成する日付（YYYY-MM-DD、空なら翌日JST）'
+        required: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: cards
+  cancel-in-progress: false
+
+jobs:
+  cards:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Python deps
+        run: pip install -r requirements.txt
+
+      - name: Install Noto CJK fonts
+        # カード描画に必須。無いと日本語が豆腐になる（gen_cards.py --check-env で検査）
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq fonts-noto-cjk fonts-noto-color-emoji
+
+      - name: Font preflight
+        run: python3 design/cards/gen_cards.py --check-env
+
+      - name: Generate cards
+        run: node tools/gen-tomorrow-cards.js ${{ github.event.inputs.date }}
+
+      - name: Commit and push
+        run: |
+          git config user.name  'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git add dist/cards
+          if git diff --cached --quiet; then
+            echo "変更なし（同じカードが既にある）"
+            exit 0
+          fi
+          # 手動実行で日付を指定した場合もあるので、実際に置かれたディレクトリ名を使う
+          days=$(ls dist/cards | tr '\n' ' ')
+          git commit -m "Add post cards ($days)"
+          git push
