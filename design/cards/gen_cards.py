@@ -105,6 +105,43 @@ def check_lines(kind, key, lines):
         _check(len(ln) <= L[key + "_line"], "%s.%s の1行が長すぎます: %r" % (kind, key, ln))
 
 
+# ---- 環境チェック（フォントはpipで入らないので別途確認が必要） ----
+REQUIRED_FONTS = [
+    ("NotoSerifCJK-Regular.ttc", "本文セリフ"),
+    ("NotoSerifCJK-Bold.ttc", "見出し"),
+    ("NotoSerifCJK-Light.ttc", "ロゴ・数字"),
+    ("NotoSansCJK-Regular.ttc", "小見出し・URL"),
+]
+
+
+def check_env(verbose=True):
+    """描画に必要なフォントの有無を返す。requirements.txt では担保できない部分。
+    戻り値: 不足しているもののリスト（空なら生成可能）"""
+    import gen_brand as _gb
+    missing = []
+    rows = []
+    for path, role in [(_gb.SERIF, "本文セリフ"), (_gb.SERIF_B, "見出し"),
+                       (_gb.SERIF_L, "ロゴ・数字"), (_gb.SANS, "小見出し・URL")]:
+        ok = os.path.exists(path)
+        rows.append(("OK  " if ok else "なし", role, path))
+        if not ok:
+            missing.append(path)
+    rows.append((("OK  " if EMOJI_FONT else "なし"), "絵文字CTA（無くても続行）",
+                 EMOJI_FONT or "NotoColorEmoji.ttf"))
+    if verbose:
+        for st, role, path in rows:
+            print("%s %-24s %s" % (st, role, path))
+        if missing:
+            print("\n日本語フォントが不足しています。Debian/Ubuntu 系なら:")
+            print("  apt-get install -y fonts-noto-cjk")
+        elif not EMOJI_FONT:
+            print("\n絵文字フォントのみ不足（絵文字を省いて描画は続行）:")
+            print("  apt-get install -y fonts-noto-color-emoji")
+        else:
+            print("\nすべて揃っています。")
+    return missing
+
+
 def wrap(txt, n):
     """日本語向け: 句読点で折らないよう n 文字目安で改行。"""
     out, line = [], ""
@@ -325,7 +362,12 @@ def main(argv=None):
     ap.add_argument("-o", "--out", help="出力PNGパス")
     ap.add_argument("--samples", action="store_true",
                     help="3テンプレのサンプルとコンタクトシートを出力")
+    ap.add_argument("--check-env", action="store_true",
+                    help="必要フォントの有無を確認して終了（不足時は終了コード1）")
     a = ap.parse_args(argv)
+
+    if a.check_env:
+        raise SystemExit(1 if check_env() else 0)
 
     if a.samples or not (a.spec or a.spec_file):
         x = make_t1(os.path.join(OUT, "card-t1-koyomi-1080x1350.png"))

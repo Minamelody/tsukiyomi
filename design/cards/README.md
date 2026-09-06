@@ -66,6 +66,17 @@ python3 gen_cards.py -o out/2026-09-10-night.png --spec '{
 - Pythonから直接: `from gen_cards import render; render(spec_dict, out_path)`
 - `--samples` で上表の3枚とコンタクトシートを再生成。
 
+## 環境チェック
+
+`requirements.txt`（Pillow）では**フォントは担保できない**。ランナー環境の初回セットアップ時に:
+
+```bash
+python3 gen_cards.py --check-env    # 不足があれば終了コード1
+```
+
+必要なのは Noto CJK の4本（`fonts-noto-cjk`）。無いと**代替なしで停止**する。
+絵文字フォント（`fonts-noto-color-emoji`）は無くても絵文字を省いて描画を続行する。
+
 ## 文字数の上限（超えると例外で停止する）
 
 自動生成で崩れた画像が投稿されるのを防ぐため、長すぎる文面は描画せず `ValueError` で落とす。
