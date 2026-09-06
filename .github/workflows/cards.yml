@@ -21,9 +21,14 @@ on:
 
 permissions:
   contents: write
+  pages: write
+  id-token: write
 
+# pages.yml と同じ Pages デプロイを行うので、同じグループに入れて直列化する。
+# 別グループだと同時に走ってデプロイが競合し、古い dist で上書きされうる。
+# cancel-in-progress は false: カード生成の途中キャンセルはコミット漏れになる。
 concurrency:
-  group: cards
+  group: pages
   cancel-in-progress: false
 
 jobs:
@@ -70,3 +75,45 @@ jobs:
           days=$(ls dist/cards | tr '\n' ' ')
           git commit -m "Add post cards ($days)"
           git push
+
+      # GITHUB_TOKEN による push は他のワークフローを起動しない（GitHub の仕様。
+      # 無限ループ防止のため）。つまり上の push では pages.yml が走らず、カードは
+      # 永久に404のまま＝画像付き投稿に一度も切り替わらない。
+      # そのためデプロイをここで完結させる。
+      - name: Configure Pages
+        id: pages
+        uses: actions/configure-pages@v5
+
+      - name: Build site with the cards included
+        env:
+          SITE_URL: ${{ steps.pages.outputs.base_url }}
+          REQUIRE_SHOP_URLS: '1'
+          COCONALA_PROFILE_URL: ${{ vars.COCONALA_PROFILE_URL }}
+          COCONALA_URL_SEIMEI: ${{ vars.COCONALA_URL_SEIMEI }}
+          COCONALA_URL_SEIZA: ${{ vars.COCONALA_URL_SEIZA }}
+          COCONALA_URL_TAROT: ${{ vars.COCONALA_URL_TAROT }}
+          COCONALA_URL_SHICHU: ${{ vars.COCONALA_URL_SHICHU }}
+          COCONALA_URL_ASTRO: ${{ vars.COCONALA_URL_ASTRO }}
+          COCONALA_URL_BUNDLE: ${{ vars.COCONALA_URL_BUNDLE }}
+        run: node tools/build-static.js
+
+      - name: Verify build output
+        run: |
+          test -f dist/index.html || { echo "dist/index.html がありません"; exit 1; }
+          grep -q 'rel="canonical"' dist/index.html || { echo "canonical が出力されていません"; exit 1; }
+          ls dist/cards/*/ >/dev/null || { echo "dist/cards が空です"; exit 1; }
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: cards
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+    steps:
+      - uses: actions/deploy-pages@v4
