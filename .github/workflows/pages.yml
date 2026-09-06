@@ -1,0 +1,76 @@
+# GitHub Pages へ自動デプロイする。
+#
+# canonical / OGP / JSON-LD は絶対URLなので SITE_URL が要るが、
+# 公開URL（https://<user>.github.io/<repo>/）は Pages を有効化するまで確定しない。
+# actions/configure-pages が返す base_url をそのまま SITE_URL に渡すことで、
+# ユーザー名やリポジトリ名を手で書かずに常に正しいURLで焼ける。
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Configure Pages
+        id: pages
+        uses: actions/configure-pages@v5
+
+      # ココナラURLは出品後に、リポジトリの
+      # Settings → Secrets and variables → Actions → Variables に足せば
+      # 次のpushで自動的に埋まる。未設定の枠は「準備中です」表示のまま。
+      - name: Build
+        env:
+          SITE_URL: ${{ steps.pages.outputs.base_url }}
+          # 出品後は Variables 必須。未設定のまま再ビルドすると購入ボタンが
+          # 全部「準備中です」に戻り、導線が消えたサイトを公開してしまう。
+          REQUIRE_SHOP_URLS: '1'
+          COCONALA_PROFILE_URL: ${{ vars.COCONALA_PROFILE_URL }}
+          COCONALA_URL_SEIMEI: ${{ vars.COCONALA_URL_SEIMEI }}
+          COCONALA_URL_SEIZA: ${{ vars.COCONALA_URL_SEIZA }}
+          COCONALA_URL_TAROT: ${{ vars.COCONALA_URL_TAROT }}
+          COCONALA_URL_SHICHU: ${{ vars.COCONALA_URL_SHICHU }}
+          COCONALA_URL_ASTRO: ${{ vars.COCONALA_URL_ASTRO }}
+          COCONALA_URL_BUNDLE: ${{ vars.COCONALA_URL_BUNDLE }}
+        run: node tools/build-static.js
+
+      # ビルドが通っても canonical が空だと SEO が死ぬので、
+      # 成果物を検査してから初めてアップロードする。
+      - name: Verify build output
+        run: |
+          test -f dist/index.html || { echo "dist/index.html がありません"; exit 1; }
+          grep -q 'rel="canonical"' dist/index.html || { echo "canonical が出力されていません（SITE_URL 未設定）"; exit 1; }
+          test -f dist/sitemap.xml || { echo "sitemap.xml がありません"; exit 1; }
+          cat dist/BUILD-INFO.txt
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
