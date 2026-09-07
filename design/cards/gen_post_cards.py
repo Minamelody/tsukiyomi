@@ -73,6 +73,43 @@ def emoji_img(ch, size):
     return layer.resize((max(1, int(layer.width * r)), max(1, int(layer.height * r))), Image.LANCZOS)
 
 
+def _emoji_img_or_none(ch, size):
+    """絵文字フォントで実描画できる（不透明ピクセルを持つ）文字なら画像を返す。
+    不可視（透明・トーフ）の文字は描画しても意味がないので None を返す。"""
+    if not EMOJI_FONT:
+        return None
+    try:
+        em = emoji_img(ch, size)
+    except Exception:
+        return None
+    if em is None or em.convert("RGBA").getbbox() is None:
+        return None
+    return em
+
+
+def draw_mixed(img, d, txt, cx, y, fn, color, esize=30):
+    """絵文字混じりのテキストを中央揃えで描画する。
+    絵文字は絵文字フォントの画像として貼り付け、それ以外は fn で描画する
+    （本文行に絵文字が混ざるとトーフになる #3783844 の修正）。"""
+    segs, tot = [], 0.0
+    for ch in txt:
+        em = _emoji_img_or_none(ch, esize)
+        if em is not None:
+            segs.append(("img", em, em.width))
+            tot += em.width
+        else:
+            w = tw(d, ch, fn)[0]
+            segs.append(("txt", ch, w))
+            tot += w
+    x = cx - tot / 2
+    for kind, val, w in segs:
+        if kind == "img":
+            img.paste(val, (int(x), int(y - 2)), val)
+        else:
+            d.text((x, y), val, font=fn, fill=color)
+        x += w
+
+
 def marker(img, d, x, y, size=34):
     """行頭マーカー。👉絵文字（あれば）／なければ金の菱形を描く。戻り値: マーカー幅。"""
     em = emoji_img("👉", size)
@@ -191,10 +228,11 @@ def footer(img, d, note=None):
 #   window="15:00〜16:59頃" + window_caption="今日の吉時" → 投稿時刻と誤読されない「吉時（情報）」表示
 #   emoji=None → 絵文字指示を載せない（問いかけ型）
 #   emoji="🕊️" → 「🕊️を置いてください」をカードに載せる（絵文字リアクション型・本文側にも同指示を入れる）
+#   cta="を置いたあなたは、もう選んだ" → 受け身型（エンゲージメントベイト回避・司書キャラ）
 # 投稿スロット（8時/13時/日曜21時）に合わせた値はパイプライン側から渡す（2026-09-06 R社長指摘対応）。
-def cta_line(img, d, y, emoji, fn, color=GOLD_F):
-    """「{emoji}」を置いてください の1行を中央に描く。"""
-    pre, post = "「", "」を置いてください"
+def cta_line(img, d, y, emoji, fn, cta="を置いてください", color=GOLD_F):
+    """「{emoji}」{cta} の1行を中央に描く。cta は絵文字の後ろに続く文言。"""
+    pre, post = "「", "」" + cta
     em = emoji_img(emoji, 34)
     bw, _ = tw(d, pre, fn)
     aw, _ = tw(d, post, fn)
@@ -209,7 +247,7 @@ def cta_line(img, d, y, emoji, fn, color=GOLD_F):
 def make_koyomi(path, date_label="明日 9月7日（月）", senjitsu="天赦日 × 一粒万倍日",
                 items=("天赦日＝天が赦す最上の吉日", "一粒万倍日＝種まきに最適な日",
                        "寅の日＝旅立ちに良い日", "大安＝何事も始めやすい日"),
-                window=None, window_caption=None, emoji=None, note=None):
+                window=None, window_caption=None, emoji=None, cta="を置いてください", note=None):
     check_koyomi(date_label, senjitsu, items, window, window_caption, emoji)
     img = base(20260907, 0.50, 0.15)
     mcx, mcy, mr = W * 0.5, H * 0.17, 108
@@ -247,7 +285,7 @@ def make_koyomi(path, date_label="明日 9月7日（月）", senjitsu="天赦日
         y = y0 + i * 76
         mx = W * 0.185
         mw = marker(img, d, mx, y + 6, 30)
-        center(d, it, fn_i, mx + mw + (W * 0.815 - mx) / 2, y, WHITE)
+        draw_mixed(img, d, it, mx + mw + (W * 0.815 - mx) / 2, y, fn_i, WHITE)
 
     y_next = H * 0.462 + len(items) * 76
     # 時刻行（分岐: window=None なら出さない）
@@ -260,7 +298,7 @@ def make_koyomi(path, date_label="明日 9月7日（月）", senjitsu="天赦日
         y_next += 100
     # 絵文字指示（分岐: emoji=None なら出さない＝問いかけ型）
     if emoji:
-        cta_line(img, d, y_next + 26, emoji, f(SERIF, 28))
+        cta_line(img, d, y_next + 26, emoji, f(SERIF, 28), cta=cta)
         y_next += 76
 
     footer(img, d, note)
@@ -270,10 +308,10 @@ def make_koyomi(path, date_label="明日 9月7日（月）", senjitsu="天赦日
 
 # ---------------------------------------------- 型B: 12星座カード（13時）
 def make_seiza(path, title="今日の12星座", sub="あなたの星座、当たってた？",
-               words=("直感が冴える日", "金運アップの兆し", "会話が弾む日",
-                      "家族に優しく", "思い切りが吉", "整理整頓が開運",
-                      "選択は直感で", "ヒラメキに従って", "新しい挑戦を",
-                      "計画が実る日", "アイデアが光る", "直感を信じて"), note=None):
+               words=("迷うな、突っ込め", "じっくりでも動け", "話せば火がつく",
+                      "守りに入るのは損", "目立て、今だ", "完璧主義は足かせ",
+                      "バランスより決断", "疑うより動け", "飛び込め、後悔するな",
+                      "計画より実行", "変われ、今だ", "流されるな、選べ"), note=None):
     check_seiza(title, sub, words)
     img = base(20260907, 0.24, 0.13)
     d = ImageDraw.Draw(img)
@@ -318,9 +356,9 @@ def make_seiza(path, title="今日の12星座", sub="あなたの星座、当た
 
 # ---------------------------------------------- 型D: 診断カード（週1）
 def make_shindan(path, topic="あなたの隠れ性格",
-                 blocks=(("余り0", ("直感で動く・行動派", "始めるのが正解の日")),
-                         ("余り1", ("慎重に考える・思考派", "調べるのが正解の日")),
-                         ("余り2", ("周りを整える・調和派", "人と繋がるのが吉"))),
+                 blocks=(("余り0", ("直感で動く・行動派", "迷うな、今すぐ始めろ")),
+                         ("余り1", ("慎重に考える・思考派", "調べすぎは逃げになる")),
+                         ("余り2", ("周りを整える・調和派", "人と繋がれ、動け"))),
                  note=None):
     check_shindan(topic, blocks)
     img = base(20260907, 0.72, 0.14)
@@ -432,7 +470,8 @@ def main(argv=None):
         # 型Aサンプルは「吉時（情報）＋絵文字リアクション型」の分岐例。
         # 問いかけ型なら window/emoji を渡さない（時刻行・絵文字指示なし）。
         x = make_koyomi(os.path.join(OUT, "card-koyomi-1080x1350.png"),
-                        window="15:00〜16:59頃", window_caption="今日の吉時", emoji="🕊️")
+                        window="15:00〜16:59頃", window_caption="今日の吉時",
+                        emoji="🕊️", cta="を置いたあなたは、もう選んだ")
         y = make_seiza(os.path.join(OUT, "card-seiza-1080x1350.png"))
         z = make_shindan(os.path.join(OUT, "card-shindan-1080x1350.png"))
         sheet = contact_sheet([x, y, z], os.path.join(OUT, "_post-cards-contact-sheet.png"))
