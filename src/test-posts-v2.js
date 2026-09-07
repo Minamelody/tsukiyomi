@@ -11,16 +11,18 @@ function ok(cond, name) {
 }
 
 // キャラ設定＋運用者の声を弾く禁止語（返信specと共用）。投稿本文にも同じゲートをかける。
+// 効果保証語（景表法）：結果断定「全てがうまく」「うまくいく」級もここで弾く（task #15 回帰）。
 const FORBIDDEN = ['!', '！', '笑', 'よければ', 'どうぞ', '気になりますよね',
   '5種', '5つ', 'まとめて', 'ぜひ', 'お試しください', '参考に',
-  '必ず', '絶対', '保証', '霊視', '当たります', '無料', 'URL', 'http'];
+  '必ず', '絶対', '保証', '霊視', '当たります', '無料', 'URL', 'http',
+  '全てがうまく', 'うまくいく'];
 
 async function main() {
-  console.log('1. 型A/B/D が3本生成（2026-09-06 三重日）');
+  console.log('1. 型A/FOMO/D が3本生成（2026-09-06 三重日）');
   const triple = await planDay('2026-09-06', 3, []);
   ok(triple.length === 3, '3本生成');
   ok(triple[0].type === 'type_a', `slot0=型A（実際: ${triple[0].type}）`);
-  ok(triple[1].type === 'type_b', `slot1=型B（実際: ${triple[1].type}）`);
+  ok(triple[1].type === 'type_fomo', `slot1=型FOMO（実際: ${triple[1].type}）`);
   ok(triple[2].type === 'type_d', `slot2=型D（実際: ${triple[2].type}）`);
 
   console.log('2. 型A（暦フック）の構造');
@@ -32,12 +34,25 @@ async function main() {
     console.log('  --- 型A本文 ---'); console.log(a.text.split('\n').map(l => '  ' + l).join('\n'));
   }
 
-  console.log('3. 型B（12星座）の構造');
+  console.log('3. 型FOMO（13時・🌙ミーム）の構造と効果保証語');
   {
-    const b = triple[1];
-    ok(/当たってましたか/.test(b.text), '問い「当たってた？」あり');
-    ok(b.cardSpec && Array.isArray(b.cardSpec.words) && b.cardSpec.words.length === 12, `words 12件（${b.cardSpec.words.length}）`);
-    ok(b.cardSpec.template === 'seiza', `型B cardSpec.template=seiza（実際: ${b.cardSpec.template}）`);
+    const f = triple[1];
+    ok(/飛ばしたらダメ、とは言いません/.test(f.text), 'FOMO見出しあり');
+    ok(/🌙/.test(f.text), '本文に🌙（CTA絵文字）');
+    ok(!/全てがうまく|うまくいく/.test(f.text), '効果保証語（全てがうまく/うまくいく）なし');
+    ok(!/必ず|絶対|保証/.test(f.text), '絶対/必ず/保証 なし');
+    ok(f.cardSpec && f.cardSpec.template === 'koyomi', `cardSpec=koyomi（実際: ${f.cardSpec.template}）`);
+    ok(f.cardSpec.emoji === '🌙', 'cardSpec.emoji=🌙（カードCTA行にも絵文字）');
+    ok(f.cardSpec.senjitsu === '運気が動き始める日', 'cardSpec.senjitsu 一致');
+    console.log('  --- 型FOMO本文 ---'); console.log(f.text.split('\n').map(l => '  ' + l).join('\n'));
+  }
+
+  console.log('3b. 型B（12星座・次回型B枠用に温存）は直接生成で健在');
+  {
+    const { buildTypeB } = require('./threads-posts');
+    const b = buildTypeB('2026-09-08', () => 0);
+    ok(b.type === 'type_b' && b.cardSpec.template === 'seiza', `型B=seizaのまま（実際: ${b.cardSpec && b.cardSpec.template}）`);
+    ok(Array.isArray(b.cardSpec.words) && b.cardSpec.words.length === 12, 'words 12件');
   }
 
   console.log('4. 型D（診断）の構造');
@@ -158,12 +173,12 @@ async function main() {
     ok(buildTypeNight('2026-09-07').text !== buildTypeNight('2026-09-08').text, '9/7 ≠ 9/8（日替わり）');
   }
 
-  console.log('13. カード紐付け回帰: 型B=seiza／夜枠=テキストのみ／テンプレは koyomi|seiza|shindan のみ');
+  console.log('13. カード紐付け回帰: 型FOMO(13時)=koyomi／夜枠=テキストのみ／テンプレは koyomi|seiza|shindan のみ');
   {
     const mon = await planDay('2026-09-07', 3, []);
     const b = mon[1];
-    ok(b.type === 'type_b' && b.cardSpec && b.cardSpec.template === 'seiza',
-      `型B(13時)=seizaカード（実際: ${b.cardSpec && b.cardSpec.template}）`);
+    ok(b.type === 'type_fomo' && b.cardSpec && b.cardSpec.template === 'koyomi',
+      `型FOMO(13時)=koyomiカード（実際: ${b.cardSpec && b.cardSpec.template}）`);
     ok(mon[2].type === 'type_night' && mon[2].cardSpec === null,
       '型T3夜(21時)=テキストのみ（cardSpec null・画像を添付しない）');
     // 通年スポット: 生成されるカードテンプレは koyomi/seiza/shindan のみ。

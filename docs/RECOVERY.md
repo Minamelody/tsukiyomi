@@ -63,7 +63,7 @@ Facebook の発行ページが白画面になるので、Safari 等で直接開�
 ```bash
 bash run-refresh-token.sh --check      # 「トークンは現在有効です」
 bash run-post.sh 0                     # dry-run（--live が無い限り投稿しない）
-node src/test-posts-v2.js              # 40 PASS（型A/B/D・型T3夜・絵文字型・cardSpec契約）
+node src/test-posts-v2.js              # 50 PASS（型A/FOMO/型D・型T3夜・絵文字型・cardSpec契約）
 python3 src/test_senjitsu.py           # ALL PASS
 ```
 

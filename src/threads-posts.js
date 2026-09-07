@@ -8,7 +8,8 @@
 //   - カードspecを同梱（本文と同じデータから生成。本文とカードで文を繰り返さない）
 //   - 従来型（engagement/funnel）はフォールバック用に温存
 //
-// v3（2026-09-06/07）: slot0=型A(暦)・slot1=型B(12星座)・slot2=型D(日曜)/型T3夜(月〜土)。
+// v3（2026-09-06/07）: slot0=型A(暦)・slot1=型FOMO(13時🌙ミーム)・slot2=型D(日曜)/型T3夜(月〜土)。
+//   型FOMOは task #15 案A（「飛ばしたらぜっったいにダメ」ミームのツキヨミ版・風情は🌙・効果保証排除）。
 //   型T3夜は煽り強め・暦非依存で、内心の言い換えを日替わり辞書から重複なしで選ぶ（10日一周）。
 //
 // 重要: 日付・時刻を焼いた文面は当日限りで破棄。失敗枠の翌日流用禁止。
@@ -425,6 +426,39 @@ function buildTypeB(dateStr, r) {
   return { type: 'type_b', tag: 'seiza', text: lines.join('\n'), cardSpec };
 }
 
+// ── 型FOMO（13時・🌙ミーム。task #15 案A・最優先） ─────────────────────
+// ディープリサーチ分析(#15 growing-accounts-analysis.md)で「現在の主流ミーム」と判定された
+// 「飛ばしたらぜっったいにダメ」ミームのツキヨミ版。絵文字は☾(U+263E)がカード描画で不可視
+// （alpha0）のため 🌙(U+1F319) を使用（Designer 検証済）。
+// 境界: ベイト解禁（「置いた人だけ」系CTA OK）・効果保証は排除（「全てがうまくいく」でなく
+// 「運気が動き始めます」＝動きの開始）。実績捏造なし。絵文字は本文＋カード両方（本文×ビジュアル一致）。
+// 定型文で毎日同一＝コピペでリポスト伝播するミームの性質。日替わりバリエーションは将来の
+// 1週間ローテーション（8時=フック/13時=ミーム/21時=作法）で実装する。
+const TYPE_FOMO_TEXT = [
+  '飛ばしたらダメ、とは言いません。ただ、「🌙」を置いた人のところには、今から運気が動き始めます。',
+  '今日のうちに、置いてください。',
+  '置いてくれた方には、今夜、視えたままを返します。',
+];
+// koyomiテンプレ流用。date_label/senjitsu は「日付に依存しない」形にしている。
+// items 内に 🌙 を入れるのは Designer の draw_mixed（絵文字混じりテキスト描画）対応後。
+const TYPE_FOMO_CARD = {
+  template: 'koyomi',
+  date_label: '今日',
+  senjitsu: '運気が動き始める日',
+  items: [
+    '飛ばしたらダメ、とは言いません',
+    '「🌙」を置いた人のところには',
+    '今から運気が動き始めます',
+    '置いてくれた方には今夜返します',
+  ],
+  emoji: '🌙',
+};
+
+/** 型FOMO（13時・🌙FOMOミーム）。定型文で固定（ミーム＝コピペ伝播が目的）。 */
+function buildTypeFomo() {
+  return { type: 'type_fomo', tag: 'fomo', text: TYPE_FOMO_TEXT.join('\n'), cardSpec: { ...TYPE_FOMO_CARD } };
+}
+
 /** 型D（週1・診断ミニ型）。余り診断で「自分の結果を返信したくなる」構造。 */
 function buildTypeD(dateStr, r) {
   const lines = [
@@ -475,7 +509,7 @@ async function planDay(date, count = 3, recent = [], opts = {}) {
   if (!facts) return planDayLegacy(date, count, recent);
 
   const used = new Set(recent);
-  const kinds = ['type_a', 'type_b', isSunday(date) ? 'type_d' : 'type_night'];  // slot0/1/2
+  const kinds = ['type_a', 'type_fomo', isSunday(date) ? 'type_d' : 'type_night'];  // slot0/1/2
   const posts = [];
   for (let i = 0; i < Math.min(count, kinds.length); i++) {
     if (kinds[i] === 'type_a' && (!facts.typeAFacts || !facts.typeAFacts.length)) {
@@ -488,11 +522,13 @@ async function planDay(date, count = 3, recent = [], opts = {}) {
       const kind = kinds[i];
       const cand = kind === 'type_a'
         ? buildTypeA(date, facts, r, opts)     // opts.variant で絵文字型へ切替可
-        : kind === 'type_b'
-          ? buildTypeB(date, r)
-          : kind === 'type_night'
-            ? buildTypeNight(date)             // 決定論的（日替わり辞書ローテーション）
-            : buildTypeD(date, r);
+        : kind === 'type_fomo'
+          ? buildTypeFomo()                    // 決定論的（定型ミーム）
+          : kind === 'type_b'
+            ? buildTypeB(date, r)
+            : kind === 'type_night'
+              ? buildTypeNight(date)           // 決定論的（日替わり辞書ローテーション）
+              : buildTypeD(date, r);
       post = cand;
       if (!used.has(cand.text)) break;
     }
@@ -589,4 +625,4 @@ function planDayLegacy(date, count = 3, recent = []) {
   return posts;
 }
 
-module.exports = { engagementPost, funnelPost, planDay, planDayLegacy, buildTypeNight, SCENES };
+module.exports = { engagementPost, funnelPost, planDay, planDayLegacy, buildTypeB, buildTypeFomo, buildTypeNight, SCENES };
