@@ -37,6 +37,7 @@ async function main() {
     const b = triple[1];
     ok(/当たってましたか/.test(b.text), '問い「当たってた？」あり');
     ok(b.cardSpec && Array.isArray(b.cardSpec.words) && b.cardSpec.words.length === 12, `words 12件（${b.cardSpec.words.length}）`);
+    ok(b.cardSpec.template === 'seiza', `型B cardSpec.template=seiza（実際: ${b.cardSpec.template}）`);
   }
 
   console.log('4. 型D（診断）の構造');
@@ -155,6 +156,32 @@ async function main() {
     ok(buildTypeNight('2026-09-07').text.includes('明日やろう'), '9/7=辞書#1（Designer確定文の起点）');
     // 連続2日が同じ文面にならない（固定1文の再発防止）
     ok(buildTypeNight('2026-09-07').text !== buildTypeNight('2026-09-08').text, '9/7 ≠ 9/8（日替わり）');
+  }
+
+  console.log('13. カード紐付け回帰: 型B=seiza／夜枠=テキストのみ／テンプレは koyomi|seiza|shindan のみ');
+  {
+    const mon = await planDay('2026-09-07', 3, []);
+    const b = mon[1];
+    ok(b.type === 'type_b' && b.cardSpec && b.cardSpec.template === 'seiza',
+      `型B(13時)=seizaカード（実際: ${b.cardSpec && b.cardSpec.template}）`);
+    ok(mon[2].type === 'type_night' && mon[2].cardSpec === null,
+      '型T3夜(21時)=テキストのみ（cardSpec null・画像を添付しない）');
+    // 通年スポット: 生成されるカードテンプレは koyomi/seiza/shindan のみ。
+    // 旧生成器（t1/t2/t3・縁「会いたい人」等）が混入しないことを回帰で担保。
+    let bad = 0;
+    const allowed = new Set(['koyomi', 'seiza', 'shindan']);
+    for (const day of ['2026-09-06', '2026-09-07', '2026-09-08', '2026-09-13', '2026-10-01', '2026-12-16']) {
+      const posts = await planDay(day, 3, []);
+      for (const p of posts) {
+        if (p.cardSpec && !allowed.has(p.cardSpec.template)) {
+          bad++; console.log(`    不正template: ${day} ${p.type} -> ${p.cardSpec.template}`);
+        }
+        if (p.type === 'type_night' && p.cardSpec !== null) {
+          bad++; console.log(`    夜枠にcardSpecあり: ${day}`);
+        }
+      }
+    }
+    ok(bad === 0, `カードテンプレ正・夜枠はテキストのみ（不正: ${bad}）`);
   }
 
   console.log(`\n結果: ${pass} PASS / ${fail} FAIL`);

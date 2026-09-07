@@ -91,7 +91,10 @@ async function main() {
     }
   } catch (e) { console.warn('投稿枠の確認に失敗（続行します）:', e.message); }
 
-  const imageUrl = await publishedCardUrl(date, slot);
+  // カードは cardSpec がある枠だけ付ける。テキストのみ枠（型T3夜は cardSpec が無い）に
+  // Pages に古い生成器の slotN.png が残っていても添付しない（R社長指摘「12星座本文×縁カード」
+  // の再発防止。公開URLの200確認だけでは cardSpec の有無を判定できないためここで止める）。
+  const imageUrl = post.cardSpec ? await publishedCardUrl(date, slot) : null;
   const result = await client.publishText(post.text, imageUrl);
   console.log('投稿しました:', result.postId, imageUrl ? `（画像付き: ${imageUrl}）` : '（テキストのみ）');
 

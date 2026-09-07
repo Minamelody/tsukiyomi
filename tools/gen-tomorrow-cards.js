@@ -45,7 +45,17 @@ async function main() {
   for (let slot = 0; slot < posts.length; slot++) {
     const spec = posts[slot].cardSpec;
     if (!spec) {
-      console.log(`slot${slot}: cardSpec なし（テキストのみの枠）`);
+      // テキストのみ枠（型T3夜）はカードを作らない。ただし以前の生成器が作った
+      // slotN.png が残っていると、autopost が公開URLの200だけを見て誤ったカードを
+      // 添付してしまう（R社長指摘「12星座本文×縁カード」事故と同経路）。ここで明示的に
+      // 消して、死んだカードが Pages に残らないようにする。
+      const stale = path.join(outDir, `slot${slot}.png`);
+      if (fs.existsSync(stale)) {
+        fs.rmSync(stale);
+        console.log(`slot${slot}: cardSpec なし（テキストのみ枠）→ 旧カード slot${slot}.png を削除`);
+      } else {
+        console.log(`slot${slot}: cardSpec なし（テキストのみの枠）`);
+      }
       continue;
     }
     const out = path.join(outDir, `slot${slot}.png`);
