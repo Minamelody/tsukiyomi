@@ -33,7 +33,7 @@ cd ~/repos/tsukiyomi
 ```bash
 pip install -r requirements.txt          # ephem（選日計算）・Pillow 他
 sudo apt-get install -y fonts-noto-cjk fonts-noto-cjk-extra fonts-noto-color-emoji
-python3 design/cards/gen_cards.py --check-env   # 全項目 OK になるまで進まない
+python3 design/cards/gen_post_cards.py --check-env   # 全項目 OK になるまで進まない
 ```
 
 **`fonts-noto-cjk-extra` を省くと落ちる。** Light ウェイトがそちらに入っており、
@@ -63,7 +63,7 @@ Facebook の発行ページが白画面になるので、Safari 等で直接開�
 ```bash
 bash run-refresh-token.sh --check      # 「トークンは現在有効です」
 bash run-post.sh 0                     # dry-run（--live が無い限り投稿しない）
-node src/test-posts-v2.js              # 15 PASS（型A/B/D）
+node src/test-posts-v2.js              # 24 PASS（型A/B/D・絵文字型・cardSpec契約）
 python3 src/test_senjitsu.py           # ALL PASS
 ```
 

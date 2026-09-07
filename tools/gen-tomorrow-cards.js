@@ -17,7 +17,7 @@ const { execFileSync } = require('child_process');
 const { planDay } = require('../src/threads-posts');
 
 const ROOT = path.join(__dirname, '..');
-const GEN = path.join(ROOT, 'design', 'cards', 'gen_cards.py');
+const GEN = path.join(ROOT, 'design', 'cards', 'gen_post_cards.py');
 
 /** JSTの「明日」をYYYY-MM-DDで返す（引数で上書き可） */
 function targetDate() {

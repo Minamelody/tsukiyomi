@@ -1,5 +1,5 @@
 // src/cards.js — 投稿カード生成（best-effort・失敗しても投稿は止めない）
-// 呼び出し: python3 design/cards/gen_cards.py -o <out> --spec '<json>'
+// 呼び出し: python3 design/cards/gen_post_cards.py -o <out> --spec '<json>'
 // ValueError（上限超過）や環境起因の失敗は null を返し、呼び出し側でログする。
 
 const { execFile } = require('child_process');
@@ -23,7 +23,7 @@ function genCard(date, slot, cardSpec) {
     fs.mkdirSync(dir, { recursive: true });
     const outFile = path.join(dir, `slot${slot}.png`);
     const spec = JSON.stringify(cardSpec);
-    execFile('python3', [path.join(CARDS_DIR, 'gen_cards.py'), '-o', outFile, '--spec', spec],
+    execFile('python3', [path.join(CARDS_DIR, 'gen_post_cards.py'), '-o', outFile, '--spec', spec],
       { timeout: 30000 },
       (err, stdout, stderr) => {
         if (err) {

@@ -36,7 +36,7 @@ async function main() {
   {
     const b = triple[1];
     ok(/当たってましたか/.test(b.text), '問い「当たってた？」あり');
-    ok(b.cardSpec && Array.isArray(b.cardSpec.zodiac) && b.cardSpec.zodiac.length === 12, `zodiac 12件（${b.cardSpec.zodiac.length}）`);
+    ok(b.cardSpec && Array.isArray(b.cardSpec.words) && b.cardSpec.words.length === 12, `words 12件（${b.cardSpec.words.length}）`);
   }
 
   console.log('4. 型D（診断）の構造');
@@ -63,6 +63,27 @@ async function main() {
     const a = await planDay('2026-09-06', 3, []);
     const b = await planDay('2026-09-06', 3, []);
     ok(a[0].text === b[0].text, '再実行で同一文面');
+  }
+
+  console.log('6b. cardSpec が gen_post_cards.py の契約（koyomi/seiza/shindan）に一致');
+  {
+    const a = triple[0];
+    ok(a.cardSpec.template === 'koyomi', `型A template=koyomi（${a.cardSpec.template}）`);
+    ok(/^\d{4}年\d{1,2}月\d{1,2}日（[日月火水木金土]）$/.test(a.cardSpec.date_label), `date_label 形式（${a.cardSpec.date_label}）`);
+    ok(Array.isArray(a.cardSpec.items) && a.cardSpec.items.every(x => typeof x === 'string' && x.includes('＝')), '型A items は「名＝意味」文字列配列');
+    ok(!('window' in a.cardSpec) && !('emoji' in a.cardSpec), '既定は window/emoji なし（時刻・絵文字指示を出さない）');
+    const d = triple[2];
+    ok(d.cardSpec.template === 'shindan' && Array.isArray(d.cardSpec.blocks) && d.cardSpec.blocks.length === 3, '型D blocks 3件');
+    ok(Array.isArray(d.cardSpec.blocks[0][1]) && d.cardSpec.blocks[0][1].length === 2, '型D block=label+2行');
+  }
+
+  console.log('6c. 型A絵文字型（variant=emoji）は本文末尾に絵文字CTA＋cardSpec.emojiを付与');
+  {
+    const em = await planDay('2026-09-06', 3, [], { variant: 'emoji' });
+    const a = em[0];
+    ok(/【/.test(a.text), '本文末尾に絵文字CTA（【{emoji}】）');
+    ok(!/始めたい|予定|思っている/.test(a.text), '問いかけ文は入らない（1投稿＝1反応誘導）');
+    ok(typeof a.cardSpec.emoji === 'string', `cardSpec.emoji 付与（${a.cardSpec.emoji}）`);
   }
 
   console.log('7. 暦要素ゼロの日（2026-09-10 は typeA=[]）は型Bで埋める');

@@ -49,15 +49,15 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Install Noto CJK fonts
-        # カード描画に必須。無いと日本語が豆腐になる（gen_cards.py --check-env で検査）
+        # カード描画に必須。無いと日本語が豆腐になる（gen_post_cards.py --check-env で検査）
         run: |
           sudo apt-get update -qq
           # Light/DemiLight は fonts-noto-cjk ではなく -extra 側に入っている。
-          # gen_cards.py はロゴと数字に Light を使うので extra が必須。
+          # gen_post_cards.py はロゴと数字に Light を使うので extra が必須。
           sudo apt-get install -y -qq fonts-noto-cjk fonts-noto-cjk-extra fonts-noto-color-emoji
 
       - name: Font preflight
-        run: python3 design/cards/gen_cards.py --check-env
+        run: python3 design/cards/gen_post_cards.py --check-env
 
       - name: Generate cards
         run: node tools/gen-tomorrow-cards.js ${{ github.event.inputs.date }}

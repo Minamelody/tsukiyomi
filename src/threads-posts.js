@@ -243,6 +243,14 @@ const TYPE_A_QUESTIONS = [
   'あなたが明日、始めたいと思っていることは何ですか。',
   '明日、始めたいこと、ありますか。',
 ];
+// 型A・絵文字リアクション型のCTA（1投稿＝1反応誘導。問いかけ型とは排他で使う）
+const TYPE_A_EMOJI_CTA = [
+  '受け取れる人は【{e}】を。',
+  '信じる人は【{e}】を置いていってください。',
+  '当たってる人は【{e}】だけ置いていって。',
+];
+
+const WEEKDAYS = ['日', '月', '火', '水', '木', '金', '土'];
 
 // ── 型B: 12星座の一言（画像カード用。本文には書かない） ──────────────────
 const ZODIAC_LINES = [
@@ -271,14 +279,23 @@ const TYPE_D_BRANCHES = [
   { r: '余り1', name: '計画タイプ', line: '段取りを整えるほど、力が伸びていく。' },
   { r: '余り2', name: '共感タイプ', line: '人の気持ちが、言葉にしなくても読める。' },
 ];
+// 型Dカード用（TYPE_D_BRANCHES と同順。label＋2行の短縮表現。make_shindan が描く）
+const TYPE_D_CARD_BLOCKS = [
+  ['余り0', ['直感で決める人', '最初に思いつく方が正解']],
+  ['余り1', ['段取りで決める人', '準備するほど力が伸びる']],
+  ['余り2', ['空気で決める人', '言葉にしなくても読める']],
+];
 
-/** 型A（朝・暦フック型）。逆張り＋行動宣言＋問いが返信を生む。 */
-function buildTypeA(dateStr, facts, r) {
+/** 型A（朝・暦フック型）。逆張り＋行動宣言＋（問い or 絵文字CTA）が返信を生む。
+ *  variant: 'question'（問いかけ・既定）/ 'emoji'（絵文字リアクション）。
+ *  1投稿＝1反応誘導。カードは既定 window=None, emoji=None（時刻・絵文字指示を出さない）。
+ *  吉時表示はR社長が「時刻を残す」と決めた時のみ window/window_caption を渡す（現時点不使用）。 */
+function buildTypeA(dateStr, facts, r, opts = {}) {
+  const variant = opts.variant || 'question';
   const [y, m, d] = dateStr.split('-').map(Number);
   const items = (facts.typeAFacts || []).slice(0, 4);
   const contrarian = TYPE_A_CONTRARIAN[Math.floor(r() * TYPE_A_CONTRARIAN.length)];
   const action = TYPE_A_ACTIONS[Math.floor(r() * TYPE_A_ACTIONS.length)];
-  const question = TYPE_A_QUESTIONS[Math.floor(r() * TYPE_A_QUESTIONS.length)];
 
   const labels = items.join('×');
   const head = items.length >= 2
@@ -294,14 +311,24 @@ function buildTypeA(dateStr, facts, r) {
     '',
     action,
     '',
-    question,
   ];
+
+  let emoji = null;
+  if (variant === 'emoji') {
+    emoji = EMOJIS[Math.floor(r() * EMOJIS.length)];
+    lines.push(TYPE_A_EMOJI_CTA[Math.floor(r() * TYPE_A_EMOJI_CTA.length)].replace(/\{e\}/g, emoji));
+  } else {
+    lines.push(TYPE_A_QUESTIONS[Math.floor(r() * TYPE_A_QUESTIONS.length)]);
+  }
+
+  const wd = WEEKDAYS[new Date(Date.UTC(y, m - 1, d)).getUTCDay()];
   const cardSpec = {
     template: 'koyomi',
-    date: `${m}月${d}日`,
+    date_label: `${y}年${m}月${d}日（${wd}）`,
     senjitsu: labels,
-    items: items.map(k => ({ name: k, meaning: TYPE_A_MEANINGS[k] })),
+    items: items.map(k => `${k}＝${TYPE_A_MEANINGS[k]}`),
   };
+  if (emoji) cardSpec.emoji = emoji;  // 絵文字型のみ（問いかけ型はカードに指示を載せない）
   return { type: 'type_a', tag: 'koyomi', text: lines.join('\n'), cardSpec };
 }
 
@@ -315,7 +342,12 @@ function buildTypeB(dateStr, r) {
     '',
     'あなたの星座、当たってましたか。',
   ];
-  const cardSpec = { template: 'seiza', zodiac: ZODIAC_LINES };
+  const cardSpec = {
+    template: 'seiza',
+    title: '今日の12星座',
+    sub: 'あなたの星座、当たってましたか。',
+    words: ZODIAC_LINES.map(([, w]) => w),
+  };
   return { type: 'type_b', tag: 'seiza', text: lines.join('\n'), cardSpec };
 }
 
@@ -329,7 +361,12 @@ function buildTypeD(dateStr, r) {
     '',
     'あなたは、どのタイプでしたか。',
   ];
-  const cardSpec = { template: 'shindan', branches: TYPE_D_BRANCHES };
+  // カードは本文の短縮表現（label＋2行）。make_shindan が「余り0」ラベル＋2行で描く。
+  const cardSpec = {
+    template: 'shindan',
+    topic: 'あなたの「決め方」',
+    blocks: TYPE_D_BRANCHES.map((b, i) => [b.r, TYPE_D_CARD_BLOCKS[i][1]]),
+  };
   return { type: 'type_d', tag: 'shindan', text: lines.join('\n'), cardSpec };
 }
 
@@ -338,7 +375,7 @@ function buildTypeD(dateStr, r) {
  * 型C(自己開示・21時)はR社長の手動ストックのため対象外。
  * 選日モジュールが使えない・暦要素がゼロの日は、型Aを型Bで埋める／従来型へフォールバック。
  */
-async function planDay(date, count = 3, recent = []) {
+async function planDay(date, count = 3, recent = [], opts = {}) {
   const [y, m, d] = date.split('-').map(Number);
   const facts = await fetchDayFacts(y, m, d);
   if (!facts) return planDayLegacy(date, count, recent);
@@ -356,7 +393,7 @@ async function planDay(date, count = 3, recent = []) {
       const r = rng(hash(seed));
       const kind = kinds[i];
       const cand = kind === 'type_a'
-        ? buildTypeA(date, facts, r)
+        ? buildTypeA(date, facts, r, opts)     // opts.variant で絵文字型へ切替可
         : kind === 'type_b'
           ? buildTypeB(date, r)
           : buildTypeD(date, r);
