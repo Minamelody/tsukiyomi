@@ -47,7 +47,7 @@ async function main() {
     console.log('  --- 型FOMO本文 ---'); console.log(f.text.split('\n').map(l => '  ' + l).join('\n'));
   }
 
-  console.log('3b. 型B（12星座）は clarity修正版文面（「あなたの星座は何座？」）に更新済み');
+  console.log('3b. 型B（12星座）は clarity修正版文面＋3行目反転済み');
   {
     const { buildTypeB } = require('./threads-posts');
     const b = buildTypeB('2026-09-08', () => 0);
@@ -56,6 +56,8 @@ async function main() {
     ok(/あなたの星座は何座？/.test(b.text), '「あなたの星座は何座？」（答えられる問い）');
     ok(/カードのあなたの欄、読んだ？/.test(b.text), '「カードのあなたの欄、読んだ？」（カード誘導）');
     ok(!/何て書いてあった/.test(b.text), '旧「何て書いてあった？」は出さない（clarity修正）');
+    ok(/その「違う」が、当たってた証拠です/.test(b.text), '3行目=「その「違う」が、当たってた証拠です」（否定→反転）');
+    ok(!/認めたくないだけ/.test(b.text), '旧否定「認めたくないだけ」は出さない（R社長指摘3789342対応）');
     ok(b.cardSpec.sub === 'あなたの星座、当たってましたか。', 'cardSpec.sub 一致');
     console.log('  --- 型B本文 ---'); console.log(b.text.split('\n').map(l => '  ' + l).join('\n'));
   }
