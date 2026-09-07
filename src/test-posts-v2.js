@@ -47,7 +47,7 @@ async function main() {
     console.log('  --- 型FOMO本文 ---'); console.log(f.text.split('\n').map(l => '  ' + l).join('\n'));
   }
 
-  console.log('3b. 型B（12星座）は clarity修正版文面＋3行目反転済み');
+  console.log('3b. 型B（12星座）は clarity修正＋3行目=自己投影宣言型（喧嘩ゼロ）');
   {
     const { buildTypeB } = require('./threads-posts');
     const b = buildTypeB('2026-09-08', () => 0);
@@ -56,8 +56,9 @@ async function main() {
     ok(/あなたの星座は何座？/.test(b.text), '「あなたの星座は何座？」（答えられる問い）');
     ok(/カードのあなたの欄、読んだ？/.test(b.text), '「カードのあなたの欄、読んだ？」（カード誘導）');
     ok(!/何て書いてあった/.test(b.text), '旧「何て書いてあった？」は出さない（clarity修正）');
-    ok(/その「違う」が、当たってた証拠です/.test(b.text), '3行目=「その「違う」が、当たってた証拠です」（否定→反転）');
-    ok(!/認めたくないだけ/.test(b.text), '旧否定「認めたくないだけ」は出さない（R社長指摘3789342対応）');
+    ok(/最初に目が行った欄/.test(b.text), '3行目=「最初に目が行った欄。それで、今日のあなたが分かります。」（自己投影宣言型）');
+    ok(!/証拠です/.test(b.text), '「証拠です」は出さない（反論・喧嘩売り撤去）');
+    ok(!/認めたくないだけ/.test(b.text), '「認めたくないだけ」は出さない（決めつけ撤去）');
     ok(b.cardSpec.sub === 'あなたの星座、当たってましたか。', 'cardSpec.sub 一致');
     console.log('  --- 型B本文 ---'); console.log(b.text.split('\n').map(l => '  ' + l).join('\n'));
   }
@@ -178,6 +179,23 @@ async function main() {
     ok(buildTypeNight('2026-09-07').text.includes('明日やろう'), '9/7=辞書#1（Designer確定文の起点）');
     // 連続2日が同じ文面にならない（固定1文の再発防止）
     ok(buildTypeNight('2026-09-07').text !== buildTypeNight('2026-09-08').text, '9/7 ≠ 9/8（日替わり）');
+  }
+
+  console.log('12b. T3辞書の「喧嘩売り」撤去（旧敵対・決めつけ行なし／改訂版あり）');
+  {
+    const { buildTypeNight } = require('./threads-posts');
+    const all = [];
+    for (let k = 0; k < 10; k++) {
+      const d = new Date(Date.UTC(2026, 8, 7 + k)); // 9/7 から10日分＝全辞書
+      all.push(buildTypeNight(d.toISOString().slice(0, 10)).text);
+    }
+    const joined = all.join('\n');
+    for (const hostile of ['自分のせいだよ', '楽な方を選んでる', 'いい日を3回逃して', '他の人はもう走り出してる', '認めたくないだけ']) {
+      ok(!joined.includes(hostile), `旧喧嘩売り「${hostile}」は撤去済み`);
+    }
+    for (const revised of ['まだ始まってないだけです', 'ただの待ち時間', '動きやすい日', '一番のチャンス']) {
+      ok(joined.includes(revised), `改訂版「${revised}」あり`);
+    }
   }
 
   console.log('13. カード紐付け回帰: 型FOMO(13時)=koyomi／夜枠=テキストのみ／テンプレは koyomi|seiza|shindan のみ');
