@@ -47,12 +47,17 @@ async function main() {
     console.log('  --- 型FOMO本文 ---'); console.log(f.text.split('\n').map(l => '  ' + l).join('\n'));
   }
 
-  console.log('3b. 型B（12星座・次回型B枠用に温存）は直接生成で健在');
+  console.log('3b. 型B（12星座）は clarity修正版文面（「あなたの星座は何座？」）に更新済み');
   {
     const { buildTypeB } = require('./threads-posts');
     const b = buildTypeB('2026-09-08', () => 0);
     ok(b.type === 'type_b' && b.cardSpec.template === 'seiza', `型B=seizaのまま（実際: ${b.cardSpec && b.cardSpec.template}）`);
     ok(Array.isArray(b.cardSpec.words) && b.cardSpec.words.length === 12, 'words 12件');
+    ok(/あなたの星座は何座？/.test(b.text), '「あなたの星座は何座？」（答えられる問い）');
+    ok(/カードのあなたの欄、読んだ？/.test(b.text), '「カードのあなたの欄、読んだ？」（カード誘導）');
+    ok(!/何て書いてあった/.test(b.text), '旧「何て書いてあった？」は出さない（clarity修正）');
+    ok(b.cardSpec.sub === 'あなたの星座、当たってましたか。', 'cardSpec.sub 一致');
+    console.log('  --- 型B本文 ---'); console.log(b.text.split('\n').map(l => '  ' + l).join('\n'));
   }
 
   console.log('4. 型D（診断）の構造');
