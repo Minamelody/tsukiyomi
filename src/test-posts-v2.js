@@ -121,6 +121,42 @@ async function main() {
     console.log('  --- 9/7 型A本文 ---'); console.log(a.text.split('\n').map(l => '  ' + l).join('\n'));
   }
 
+  console.log('10. 21時枠: 月〜土=型T3夜 / 日曜=型D');
+  {
+    const mon = await planDay('2026-09-07', 3, []);   // 月
+    const sun = await planDay('2026-09-06', 3, []);   // 日
+    ok(mon[2].type === 'type_night', `月曜 slot2=型T3夜（実際: ${mon[2].type}）`);
+    ok(sun[2].type === 'type_d', `日曜 slot2=型D（実際: ${sun[2].type}）`);
+    ok(mon[2].cardSpec === null, '型T3夜はカードなし（テキストのみ・夜の独白型）');
+  }
+
+  console.log('11. 型T3夜（21時・煽り）の構造と禁止語');
+  {
+    const mon = await planDay('2026-09-07', 3, []);
+    const n = mon[2];
+    ok(/21時にこれを読んでいるあなた/.test(n.text), '時刻の呼びかけあり（投稿時刻と一致）');
+    ok(/その感覚、当たってます/.test(n.text), '「その感覚、当たってます」あり');
+    ok(/このまま流されたら、また何も変わらない/.test(n.text), '期限の煽りあり');
+    ok(/五つの占術が同じことを指していたら/.test(n.text), '五占術の提供で締める');
+    ok(!/必ず|絶対|保証/.test(n.text), '効果保証語（必ず/絶対/保証）なし');
+    console.log('  --- 9/7 21時 本文 ---'); console.log(n.text.split('\n').map(l => '  ' + l).join('\n'));
+  }
+
+  console.log('12. 型T3夜の内心の言い換えは重複なし・10日一周（決定論ローテーション）');
+  {
+    const { buildTypeNight } = require('./threads-posts');
+    const seen = [];
+    for (let k = 0; k < 10; k++) {
+      const d = new Date(Date.UTC(2026, 8, 7 + k)); // 9/7 から10日分
+      seen.push(buildTypeNight(d.toISOString().slice(0, 10)).text);
+    }
+    ok(new Set(seen).size === 10, `10日間で重複なし（${new Set(seen).size}/10）`);
+    ok(buildTypeNight('2026-09-07').text === buildTypeNight('2026-09-17').text, '10日で一周（9/7 == 9/17）');
+    ok(buildTypeNight('2026-09-07').text.includes('明日やろう'), '9/7=辞書#1（Designer確定文の起点）');
+    // 連続2日が同じ文面にならない（固定1文の再発防止）
+    ok(buildTypeNight('2026-09-07').text !== buildTypeNight('2026-09-08').text, '9/7 ≠ 9/8（日替わり）');
+  }
+
   console.log(`\n結果: ${pass} PASS / ${fail} FAIL`);
   process.exit(fail ? 1 : 0);
 }

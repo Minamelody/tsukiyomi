@@ -8,6 +8,9 @@
 //   - カードspecを同梱（本文と同じデータから生成。本文とカードで文を繰り返さない）
 //   - 従来型（engagement/funnel）はフォールバック用に温存
 //
+// v3（2026-09-06/07）: slot0=型A(暦)・slot1=型B(12星座)・slot2=型D(日曜)/型T3夜(月〜土)。
+//   型T3夜は煽り強め・暦非依存で、内心の言い換えを日替わり辞書から重複なしで選ぶ（10日一周）。
+//
 // 重要: 日付・時刻を焼いた文面は当日限りで破棄。失敗枠の翌日流用禁止。
 //       同一文面の再投稿はシャドウバン対象。履歴（out/post-history.json）は消さないこと。
 
@@ -329,6 +332,37 @@ const TYPE_D_CARD_BLOCKS = [
   ['余り2', ['空気で決める人', '言葉にしなくても読める']],
 ];
 
+// ── 型T3夜（21時・煽り強め・暦非依存） ────────────────────────────────────
+// Designer確定文面（post-formula.md 収録版・2026-09-07）の builder 化。
+// 「{読者の内心の言い換え}」スロットは固定1文だと毎日同じ文面になり飽き＋bot感が出る
+// （今朝の一粒万倍日バグ再発防止と同じ発想）ので、日替わりローテーション辞書から引く。
+// 重複なし・10日で一周。起点 2026-09-07 = 辞書#1（Designer掲載の「今日も『明日やろう』…」）。
+// 内省の名指し（明日やろう／そのうち／完璧主義／どうせ／人の許可待ち／準備過剰／楽な方選び）
+// を10方向に分散済み。すべて2禁（実績捏造・いいねおねだり）・停止リスク・効果保証語は不使用。
+const TYPE_NIGHT_INNER = [
+  '今日も「明日やろう」と思って、何も始められていない。',
+  '「そのうち」「いつか」を、もう何年も繰り返してる。',
+  '調べるのは得意。始めるのは、いつも来週。',
+  '準備が完璧になる日を待って、何年経ったか数えたことある？',
+  '「タイミングが悪い」と言いながら、いい日を3回逃してきた。',
+  '明日がいい日になると思ってる？明日は、今日動かなかっただけの日になる。',
+  'やる前に「どうせ無理」を決めてる。それ、運のせいじゃなくて、自分のせいだよ。',
+  '誰かが「いいよ」って言うまで待ってる？その許可は、誰も出さない。',
+  '「まだ早い」って言ってる間に、他の人はもう走り出してる。',
+  '迷ってる時間は考えてる時間じゃない。楽な方を選んでるだけ。',
+];
+// 投稿時刻に一致する呼びかけ（21時枠固定）。時刻を本文に出すときは「実際の投稿時刻」に一致させる
+// （吉時＝ピーク時刻≠投稿時刻を出すと今朝の型Aのような矛盾になる。ここは投稿時刻そのもの）。
+const TYPE_NIGHT_HOUR = '21時';
+// 日替わり辞書ローテーションの起点。この日が辞書#1（index 0）。
+const TYPE_NIGHT_EPOCH = Date.UTC(2026, 8, 7); // 2026-09-07
+
+/** 日曜判定（21時枠の型D／型T3夜の振り分けに使う）。0=日曜 */
+function isSunday(dateStr) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d)).getUTCDay() === 0;
+}
+
 /** 型A（朝・暦フック型）。逆張り＋行動宣言＋（問い or 絵文字CTA）が返信を生む。
  *  但し書き・行動・問いは暦ごとの定石辞書（TYPE_A_FLOW）から引くので、
  *  「一粒万倍日なのに静かに過ごす」類の意味矛盾は構造的に起こらない（R社長指摘対応）。
@@ -410,9 +444,29 @@ function buildTypeD(dateStr, r) {
   return { type: 'type_d', tag: 'shindan', text: lines.join('\n'), cardSpec };
 }
 
+/** T3夜（21時・煽り強め・暦非依存）。内心の言い換えを日替わり辞書から重複なしで選ぶ（10日一周）。
+ *  決定論的（同じ日は同じ文面）＋重複なしローテーション＝乱数ではない。
+ *  夜枠は暦非依存なので暦整合チェックは不要。2禁・停止リスク・効果保証語は不使用。 */
+function buildTypeNight(dateStr) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const t = Date.UTC(y, m - 1, d);
+  const diffDays = Math.round((t - TYPE_NIGHT_EPOCH) / 86400000);
+  const idx = ((diffDays % TYPE_NIGHT_INNER.length) + TYPE_NIGHT_INNER.length) % TYPE_NIGHT_INNER.length;
+  const inner = TYPE_NIGHT_INNER[idx];
+  const lines = [
+    `${TYPE_NIGHT_HOUR}にこれを読んでいるあなた。`,
+    `${inner}その感覚、当たってます。`,
+    'このまま流されたら、また何も変わらない。',
+    '五つの占術が同じことを指していたら、そのままお伝えします。',
+  ];
+  // 夜枠はテキストのみ（カードテンプレート未設計・夜の独白型なので付けない）
+  return { type: 'type_night', tag: 'night', text: lines.join('\n'), cardSpec: null };
+}
+
 /**
- * 1日分の投稿計画（v3・型A/B/D）。slot0=朝(型A暦) / slot1=昼(型B12星座) / slot2=型D(診断)。
- * 型C(自己開示・21時)はR社長の手動ストックのため対象外。
+ * 1日分の投稿計画（v3・型A/B/D＋T3夜）。slot0=朝(型A暦) / slot1=昼(型B12星座) / slot2=夜。
+ * slot2 は 日曜=型D(診断)、月〜土=型T3夜(煽り・暦非依存)。日曜型D は週1枠として維持（R社長 3741861）。
+ * 型C(自己開示)はR社長の手動ストックのため対象外。
  * 選日モジュールが使えない・暦要素がゼロの日は、型Aを型Bで埋める／従来型へフォールバック。
  */
 async function planDay(date, count = 3, recent = [], opts = {}) {
@@ -421,7 +475,7 @@ async function planDay(date, count = 3, recent = [], opts = {}) {
   if (!facts) return planDayLegacy(date, count, recent);
 
   const used = new Set(recent);
-  const kinds = ['type_a', 'type_b', 'type_d'];  // slot0/1/2
+  const kinds = ['type_a', 'type_b', isSunday(date) ? 'type_d' : 'type_night'];  // slot0/1/2
   const posts = [];
   for (let i = 0; i < Math.min(count, kinds.length); i++) {
     if (kinds[i] === 'type_a' && (!facts.typeAFacts || !facts.typeAFacts.length)) {
@@ -436,7 +490,9 @@ async function planDay(date, count = 3, recent = [], opts = {}) {
         ? buildTypeA(date, facts, r, opts)     // opts.variant で絵文字型へ切替可
         : kind === 'type_b'
           ? buildTypeB(date, r)
-          : buildTypeD(date, r);
+          : kind === 'type_night'
+            ? buildTypeNight(date)             // 決定論的（日替わり辞書ローテーション）
+            : buildTypeD(date, r);
       post = cand;
       if (!used.has(cand.text)) break;
     }
@@ -533,4 +589,4 @@ function planDayLegacy(date, count = 3, recent = []) {
   return posts;
 }
 
-module.exports = { engagementPost, funnelPost, planDay, planDayLegacy, SCENES };
+module.exports = { engagementPost, funnelPost, planDay, planDayLegacy, buildTypeNight, SCENES };
