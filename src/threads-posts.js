@@ -226,23 +226,61 @@ const TYPE_A_MEANINGS = {
   '寅の日': '力が満ち、動き出す日',
   '巳の日': '金運を呼ぶ日',
 };
-const TYPE_A_CONTRARIAN = [
-  'でも、良いことも苦労も、同じく万倍になるそうです。',
-  'でも、始めるのが「本当に欲しいもの」かは、自分次第です。',
-  'ただ、誰かの手を借りなければ、種は芽を出しません。',
-  'ただ、急ぐとその分、取りこぼしも増えるように思います。',
-];
-const TYPE_A_ACTIONS = [
-  'だから今日は、静かに過ごそうと思います。',
-  'だから今日は、一つだけ準備を済ませておきます。',
-  'だから今日は、衝動買いをやめておきます。',
-  'だから今日のうちに、机の上を整えておきます。',
-];
-const TYPE_A_QUESTIONS = [
-  'あなたは明日、何かを始める予定はありますか。',
-  'あなたが明日、始めたいと思っていることは何ですか。',
-  '明日、始めたいこと、ありますか。',
-];
+// 型A: 暦名→（煽り但し書き・煽り実践・問い）。吉日の性質に沿った煽り調で統一する。
+// 一粒万倍日＝始める／母倉日＝慈しむ／天赦日＝許す／天恩日＝感謝／寅の日＝動く／巳の日＝整える。
+// ・「静かに過ごす」等の「その日の意味と逆」は矛盾するので入れない（R社長 2026-09-07 指摘）
+// ・時刻・絵文字は本文に出さない（カードも window/emoji=None 既定。a6476e4）
+// ・断言（必ず/絶対）・脅し（〜しないと不幸）・いいね/フォロー依頼・選別の恐怖は禁止（task #8 spec）
+const TYPE_A_FLOW = {
+  '天赦日': {
+    caveat: 'でも、あなたがいちばん許せていないのは、自分自身です。',
+    actions: [
+      'だから今日は、自分を責めるのを一度、やめてください。',
+      '今日という日に、過去のことを一つ、手放してください。',
+    ],
+    question: '今日、あなたが許すのは、何ですか。',
+  },
+  '一粒万倍日': {
+    caveat: 'なのに、あなたはまだ何も始めていません。',
+    actions: [
+      '迷っている間に、日は暮れます。今日、まくか、まかないか。',
+      '明日では遅い。今日のうちに、種を一つまいてください。',
+    ],
+    question: '今日、始めるなら、何から始めますか。',
+  },
+  '母倉日': {
+    caveat: 'でも、だれかを慈しむ前に、自分を後回しにしすぎていませんか。',
+    actions: [
+      'だから今日は、大切な人に、言いそびれていたことを伝えてください。',
+      '今日は、自分にも一度、やさしくしてください。',
+    ],
+    question: '今日、いちばん大切にしたい人は、だれですか。',
+  },
+  '天恩日': {
+    caveat: 'でも、受けるだけで終わらせていたら、恵みはそこで止まります。',
+    actions: [
+      'だから今日は、受けた恩を、だれかに返してください。',
+      '今日は、ありがとうを一度、言葉にしてください。',
+    ],
+    question: '最近、ありがとうを伝えたい人は、いますか。',
+  },
+  '寅の日': {
+    caveat: 'でも、動き出さなければ、力は満ちたまま眠るだけです。',
+    actions: [
+      'だから今日は、決めてあったことを一つ、実行してください。',
+      '止まっていたことを、今日、一歩だけ前に進めてください。',
+    ],
+    question: '今日、一歩動くなら、どこから始めますか。',
+  },
+  '巳の日': {
+    caveat: 'でも、お金を呼ぶ前に、無駄な出費をそのままにしていませんか。',
+    actions: [
+      'だから今日は、お金の流れを一度、整えてください。',
+      '今日は、机まわりを片付けて、気の通りをよくしてください。',
+    ],
+    question: '最近、整えたいと思っているのは、何ですか。',
+  },
+};
 // 型A・絵文字リアクション型のCTA（1投稿＝1反応誘導。問いかけ型とは排他で使う）
 const TYPE_A_EMOJI_CTA = [
   '受け取れる人は【{e}】を。',
@@ -287,27 +325,30 @@ const TYPE_D_CARD_BLOCKS = [
 ];
 
 /** 型A（朝・暦フック型）。逆張り＋行動宣言＋（問い or 絵文字CTA）が返信を生む。
+ *  但し書き・行動・問いは暦ごとの定石辞書（TYPE_A_FLOW）から引くので、
+ *  「一粒万倍日なのに静かに過ごす」類の意味矛盾は構造的に起こらない（R社長指摘対応）。
  *  variant: 'question'（問いかけ・既定）/ 'emoji'（絵文字リアクション）。
- *  1投稿＝1反応誘導。カードは既定 window=None, emoji=None（時刻・絵文字指示を出さない）。
- *  吉時表示はR社長が「時刻を残す」と決めた時のみ window/window_caption を渡す（現時点不使用）。 */
+ *  カードは既定 window=None, emoji=None（時刻・絵文字指示を出さない）。 */
 function buildTypeA(dateStr, facts, r, opts = {}) {
   const variant = opts.variant || 'question';
   const [y, m, d] = dateStr.split('-').map(Number);
   const items = (facts.typeAFacts || []).slice(0, 4);
-  const contrarian = TYPE_A_CONTRARIAN[Math.floor(r() * TYPE_A_CONTRARIAN.length)];
-  const action = TYPE_A_ACTIONS[Math.floor(r() * TYPE_A_ACTIONS.length)];
+  const primary = items[0];
+  const flow = TYPE_A_FLOW[primary] || TYPE_A_FLOW['一粒万倍日'];
 
   const labels = items.join('×');
   const head = items.length >= 2
     ? [`${m}月${d}日は、`, `${labels}が`, '重なる日。']
     : [`${m}月${d}日は、`, `${items[0]}にあたる日。`];
 
+  const action = flow.actions[Math.floor(r() * flow.actions.length)];
+
   const lines = [
     ...head,
     '',
     ...items.map(k => `👉 ${k}＝${TYPE_A_MEANINGS[k]}`),
     '',
-    contrarian,
+    flow.caveat,
     '',
     action,
     '',
@@ -318,7 +359,7 @@ function buildTypeA(dateStr, facts, r, opts = {}) {
     emoji = EMOJIS[Math.floor(r() * EMOJIS.length)];
     lines.push(TYPE_A_EMOJI_CTA[Math.floor(r() * TYPE_A_EMOJI_CTA.length)].replace(/\{e\}/g, emoji));
   } else {
-    lines.push(TYPE_A_QUESTIONS[Math.floor(r() * TYPE_A_QUESTIONS.length)]);
+    lines.push(flow.question);
   }
 
   const wd = WEEKDAYS[new Date(Date.UTC(y, m - 1, d)).getUTCDay()];
@@ -328,7 +369,7 @@ function buildTypeA(dateStr, facts, r, opts = {}) {
     senjitsu: labels,
     items: items.map(k => `${k}＝${TYPE_A_MEANINGS[k]}`),
   };
-  if (emoji) cardSpec.emoji = emoji;  // 絵文字型のみ（問いかけ型はカードに指示を載せない）
+  if (emoji) cardSpec.emoji = emoji;
   return { type: 'type_a', tag: 'koyomi', text: lines.join('\n'), cardSpec };
 }
 

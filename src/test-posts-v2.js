@@ -92,9 +92,9 @@ async function main() {
     ok(posts[0].type === 'type_b', `slot0=型Bにフォールバック（実際: ${posts[0].type}）`);
   }
 
-  console.log('8. 通年で未定義値・破綻が出ない（型A/B/Dすべて）');
+  console.log('8. 通年で未定義値・破綻が出ない（型A/B/Dすべて）＋暦と矛盾する行動なし');
   {
-    let broken = 0;
+    let broken = 0, contradict = 0;
     for (let m = 1; m <= 12; m++) {
       const dim = new Date(Date.UTC(2026, m, 0)).getUTCDate();
       for (let d = 1; d <= dim; d++) {
@@ -102,10 +102,23 @@ async function main() {
         const posts = await planDay(day, 3, []);
         for (const p of posts) {
           if (!p.text || /undefined|NaN|null/.test(p.text)) broken++;
+          // 一粒万倍日（＝始める日）に「静かに過ごす」類の逆の行動が出る矛盾を監視（R社長指摘）
+          if (p.type === 'type_a' && /静かに過ご|衝動買いをやめ/.test(p.text)) contradict++;
         }
       }
     }
     ok(broken === 0, `通年で破綻なし（破綻: ${broken}）`);
+    ok(contradict === 0, `暦と矛盾する行動なし（混入: ${contradict}）`);
+  }
+
+  console.log('9. 一粒万倍日は「始める/種」の行動になる（2026-09-07 回帰）');
+  {
+    const sep7 = await planDay('2026-09-07', 1, []);
+    const a = sep7[0];
+    ok(a.type === 'type_a', `slot0=型A（実際: ${a.type}）`);
+    ok(/始め|種を/.test(a.text), '「始める/種」の行動で締める');
+    ok(!/静かに過ご/.test(a.text), '「静かに過ごす」が出ない');
+    console.log('  --- 9/7 型A本文 ---'); console.log(a.text.split('\n').map(l => '  ' + l).join('\n'));
   }
 
   console.log(`\n結果: ${pass} PASS / ${fail} FAIL`);
