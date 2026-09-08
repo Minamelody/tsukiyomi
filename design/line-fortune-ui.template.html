@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ツキヨミ 無料鑑定ツール</title>
+<!--
+  ============================================================
+  ツキヨミ 無料鑑定ツール（ローカルHTML版・Safari対応）
+  Designer: デザイン骨格（深紫×金 VI）
+  Engineer: 下記「★Engineer注入点」に実エンジン＋辞書を組み込む
+
+  【Safari file:// 対応のルール】
+  - この1ファイルに全てインライン化（外部JS/CSS参照しない）
+  - ES modules（import文）は使わない（Safari file:// でブロックされる）
+  - フォントはシステムフォントのみ（オフライン）
+  実装: 2026-09-08 / R社長 3833441「Safariで開けるように」
+  DR要件 (3833448): CLI(line-fortune.js)は温存・本HTMLは同一ロジック/同一辞書で追加・オフライン・決定論
+  ============================================================
+-->
+<style>
+  :root {
+    --ink: #2b1b4d;        /* 深紫 */
+    --ink-deep: #1e1336;
+    --gold: #c9a227;       /* 金 */
+    --gold-soft: #e6c96b;
+    --paper: #f7f3ea;      /* 生成紙 */
+    --paper-edge: #e5dcc8;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    background: linear-gradient(160deg, var(--ink-deep) 0%, var(--ink) 55%, #3a2a63 100%);
+    color: var(--paper);
+    font-family: "Hiragino Mincho ProN", "Yu Mincho", "Noto Serif JP", serif;
+    display: flex; justify-content: center; align-items: flex-start;
+    padding: 32px 16px 48px;
+    line-height: 1.8;
+  }
+  .card {
+    width: 100%; max-width: 560px;
+    background: var(--paper); color: #2a241b;
+    border-radius: 14px; padding: 28px 24px 32px;
+    box-shadow: 0 12px 40px rgba(0,0,0,.45);
+  }
+  .crest { text-align: center; margin-bottom: 6px; }
+  .crest svg { width: 44px; height: 44px; }
+  h1 {
+    text-align: center; font-size: 20px; letter-spacing: .12em;
+    color: var(--ink); margin-bottom: 2px;
+  }
+  .sub {
+    text-align: center; font-size: 12.5px; color: #7a6f5c;
+    margin-bottom: 22px; letter-spacing: .05em;
+  }
+  label { display: block; font-size: 13px; color: var(--ink); margin: 14px 0 4px; font-weight: 700; }
+  input {
+    width: 100%; padding: 10px 12px; font-size: 16px;
+    border: 1px solid var(--paper-edge); border-radius: 8px;
+    background: #fff; color: #2a241b; outline: none;
+  }
+  input:focus { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(201,162,39,.25); }
+  .hint { font-size: 11.5px; color: #8a7f68; margin-top: 3px; }
+  .row { display: flex; gap: 10px; }
+  .row > div { flex: 1; }
+  button.primary {
+    width: 100%; margin-top: 22px; padding: 13px 0; font-size: 16px;
+    background: linear-gradient(135deg, var(--gold-soft), var(--gold));
+    color: #2a241b; border: none; border-radius: 9px; cursor: pointer;
+    font-family: inherit; font-weight: 700; letter-spacing: .08em;
+    box-shadow: 0 4px 14px rgba(201,162,39,.4);
+  }
+  button.primary:disabled { opacity: .45; cursor: not-allowed; box-shadow: none; }
+  .result-wrap { display: none; margin-top: 20px; }
+  .result-wrap.show { display: block; }
+  .result-head {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 6px;
+  }
+  .count { font-size: 12px; color: #7a6f5c; }
+  .count b { color: var(--ink); }
+  .count.ok b { color: #1f7a46; }
+  .count.warn b { color: #b07a1c; }
+  .result {
+    background: #fff; border: 1px solid var(--paper-edge); border-radius: 8px;
+    padding: 14px 14px; font-size: 14.5px; white-space: pre-wrap;
+    min-height: 220px; max-height: 520px; overflow-y: auto; color: #2a241b;
+  }
+  .actions { display: flex; gap: 10px; margin-top: 12px; }
+  .actions button {
+    flex: 1; padding: 11px 0; font-size: 14px; border-radius: 8px;
+    font-family: inherit; cursor: pointer; transition: filter .15s;
+  }
+  .btn-copy {
+    background: var(--ink); color: var(--gold-soft); border: none; font-weight: 700;
+  }
+  .btn-reset { background: #fff; color: #6a6048; border: 1px solid var(--paper-edge); }
+  .actions button:active { filter: brightness(.9); }
+  .copied { display:none; text-align:center; font-size:12px; color:#1f7a46; margin-top:8px; }
+  .foot { text-align: center; font-size: 11px; color: #8a7f68; margin-top: 22px; letter-spacing: .04em; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="crest">
+    <!-- ツキヨミ 三日月（VI） -->
+    <svg viewBox="0 0 48 48" aria-hidden="true">
+      <circle cx="24" cy="24" r="20" fill="#c9a227"/>
+      <circle cx="31" cy="20" r="17" fill="#f7f3ea"/>
+    </svg>
+  </div>
+  <h1>ツキヨミ 無料鑑定</h1>
+  <div class="sub">5つの占いを、1冊の鑑定書に。</div>
+
+  <form id="fortune-form" autocomplete="off">
+    <div class="row">
+      <div>
+        <label for="sei">姓（任意）</label>
+        <input id="sei" type="text" placeholder="例: 月読" maxlength="12">
+      </div>
+      <div>
+        <label for="mei">名（任意）</label>
+        <input id="mei" type="text" placeholder="例: 未来" maxlength="12">
+      </div>
+    </div>
+    <label for="birthday">生年月日（必須）</label>
+    <input id="birthday" type="date" required>
+    <div class="hint">生年月日だけで、今の流れが読めます。</div>
+
+    <button type="submit" class="primary" id="run">鑑定する</button>
+  </form>
+
+  <div class="result-wrap" id="result-wrap">
+    <div class="result-head">
+      <div class="count" id="count"></div>
+    </div>
+    <div class="result" id="result"></div>
+    <div class="actions">
+      <button type="button" class="btn-copy" id="copy">結果をコピー（LINEへ）</button>
+      <button type="button" class="btn-reset" id="reset">やり直す</button>
+    </div>
+    <div class="copied" id="copied">コピーしました。LINEでそのまま送信できます。</div>
+  </div>
+
+  <div class="foot">オフラインで動作します／この端末の外にデータは送信されません</div>
+</div>
+
+<script>
+'use strict';
+/* ============================================================
+   ★Engineer注入点（ここだけ差し替え）:
+   TsukiyomiLineReport.generate を、実エンジン（5種計算＋辞書合成）に置き換える。
+   - 入力: { sei, mei, birthday }  birthday は 'YYYY-MM-DD'
+   - 出力: 500〜800字のテキスト（7セクション構成・誘導行1行つき）
+   - 決定論: 同じ入力 = 毎回同じ出力
+   - 辞書・エンジンはこのファイル内にインラインで埋め込む（外部参照禁止）
+   ============================================================ */
+/*@@ENGINE@@*/
+const TsukiyomiLineReport = {
+  generate: function (input) {
+    // 実エンジン（CLI line-fortune.js と同一ロジック・同一辞書）を呼び出す。
+    // 同一入力 = 同一出力（決定論）。抽出元: docs/line-fortune.html の ENGINE ブロック。
+    return __ns['./line-fortune'].buildReport(input).text;
+  }
+};
+/* ============================================================
+   UIロジック（変更不要・そのまま動く）
+   ============================================================ */
+(function () {
+  const form = document.getElementById('fortune-form');
+  const wrap = document.getElementById('result-wrap');
+  const out = document.getElementById('result');
+  const count = document.getElementById('count');
+  const copied = document.getElementById('copied');
+  const runBtn = document.getElementById('run');
+
+  function fmtBirthday(v) {
+    if (!v) return '';
+    const p = v.split('-');
+    return p[0] + '年' + Number(p[1]) + '月' + Number(p[2]) + '日';
+  }
+
+  function showCount(n) {
+    const el = count;
+    el.innerHTML = '出力 <b>' + n + '</b> 字';
+    el.className = 'count' + (n >= 500 && n <= 800 ? ' ok' : (n < 500 ? ' warn' : ''));
+  }
+
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    const birthday = document.getElementById('birthday').value;
+    if (!birthday) return;
+    const sei = document.getElementById('sei').value.trim();
+    const mei = document.getElementById('mei').value.trim();
+    const text = TsukiyomiLineReport.generate({ sei: sei, mei: mei, birthday: birthday });
+    out.textContent = text;
+    showCount(text.length);
+    wrap.classList.add('show');
+    copied.style.display = 'none';
+    runBtn.disabled = true;
+  });
+
+  document.getElementById('reset').addEventListener('click', function () {
+    form.reset();
+    wrap.classList.remove('show');
+    runBtn.disabled = false;
+    copied.style.display = 'none';
+    document.getElementById('sei').focus();
+  });
+
+  document.getElementById('copy').addEventListener('click', function () {
+    const t = out.textContent;
+    function done() { copied.style.display = 'block'; }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(t).then(done, function () { fallbackCopy(); });
+    } else { fallbackCopy(); }
+    function fallbackCopy() {
+      const ta = document.createElement('textarea');
+      ta.value = t; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      try { document.execCommand('copy'); done(); } catch (err) {}
+      document.body.removeChild(ta);
+    }
+  });
+
+  ['sei', 'mei', 'birthday'].forEach(function (id) {
+    document.getElementById(id).addEventListener('input', function () {
+      runBtn.disabled = false;
+      copied.style.display = 'none';
+    });
+  });
+})();
+</script>
+</body>
+</html>
