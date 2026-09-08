@@ -32,6 +32,20 @@ class ThreadsClient {
     return json;
   }
 
+  async _get(path, params = {}) {
+    const url = new URL(`${BASE}/${path}`);
+    for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
+    url.searchParams.set('access_token', this.accessToken);
+    const res = await fetch(url);
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const msg = json?.error?.message || res.statusText;
+      const code = json?.error?.code;
+      throw new Error(`Threads API ${res.status} (code=${code}): ${msg}`);
+    }
+    return json;
+  }
+
   /** テキスト投稿を公開する。画像を付ける場合は imageUrl（公開URL必須）を渡す */
   async publishText(text, imageUrl) {
     const params = imageUrl
@@ -44,6 +58,23 @@ class ThreadsClient {
       creation_id: container.id,
     });
     return { containerId: container.id, postId: published.id };
+  }
+
+  /** 返信を公開する（reply_to_id 指定の2段階フロー。返信は24hで1,000件まで） */
+  async publishReply(replyToId, text) {
+    const container = await this._post(`${this.userId}/threads`, {
+      media_type: 'TEXT', text, reply_to_id: replyToId,
+    });
+    await new Promise(r => setTimeout(r, 3000));
+    const published = await this._post(`${this.userId}/threads_publish`, {
+      creation_id: container.id,
+    });
+    return { containerId: container.id, postId: published.id };
+  }
+
+  /** メディアの会話（リプライ一覧）を取得する。未返信判定は replied_to の突き合わせで行う */
+  async conversation(mediaId, fields = 'id,text,username,timestamp,replied_to,is_reply_owned_by_me') {
+    return this._get(`${mediaId}/conversation`, { fields });
   }
 
   /** 残りの投稿枠を確認する（24時間で250件） */
