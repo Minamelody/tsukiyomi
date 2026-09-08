@@ -25,6 +25,7 @@ console.log('2. B2返信文（受け取り＋誘導＝全員誘導）');
   const t = buildReplyText('B2', 0, true);
   ok(t.includes('受け取りました'), '受け取りの一言あり');
   ok(t.includes('無料'), '誘導文あり');
+  ok(t.includes('https://lin.ee/oSQE3an'), '公式LINEリンク（URL）を含む');
   ok(t.length <= 120, `120字以内（${t.length}字）`);
   ok(!FORBIDDEN.some(w => t.includes(w)), '禁止語なし');
   // 全員誘導：カーソルが進んでも誘導が入る（誘導率カウンタ撤廃・R社長 2026-09-08）
@@ -50,7 +51,8 @@ console.log('5. 軽鑑定（A=自己申告/生年月日・C=相談 への自動�
   ok(a.includes('牡羊座さん'), '星座名を呼称に反映');
   ok(a.includes('そのお悩み、読みました'), '定型の受け止め行');
   ok(a.includes('近づいている変化は'), '見立て#1（辞書ローテーション）');
-  ok(a.includes('無料の鑑定があります'), 'プロフィール誘導行（全員誘導）');
+  ok(a.includes('無料の鑑定があります'), '公式LINE誘導行（全員誘導）');
+  ok(a.includes('https://lin.ee/oSQE3an'), '軽鑑定にもLINEリンク');
   ok(a.length <= 120, `120字以内（${a.length}字）`);
   ok(!FORBIDDEN.some(w => a.includes(w)), '効果保証語/禁止語なし');
   // 相談（C・星座なし）→ 呼称なしで受け止め＋見立て#2

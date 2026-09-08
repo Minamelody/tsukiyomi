@@ -30,15 +30,18 @@ const RECEIVE_VARIANTS = [
 ];
 
 // 誘導文は辞書からローテーション（LLMに生成させない＝表現の暴走防止）。spec §3 確定版。
+// 2026-09-08 R社長指示（3832619）で導線をLINE公式アカウントに切替：宛先を「プロフィールのリンク」→「公式LINE」＋リンク明記。
+const LINE_URL = 'https://lin.ee/oSQE3an';
 const GUIDE_VARIANTS = [
-  'もう少し詳しく見たいときは、プロフィールのリンクから無料で試せます。気が向いたときにでも。',
-  'プロフィールのリンクから無料の鑑定が使えます。生年月日だけで出るので、よかったら。',
-  'プロフィールのリンクに無料の鑑定を置いてあります。急がないので、必要なときに。',
-  'よかったらプロフィールのリンクから無料で試してみてください。登録も何もいりません。',
+  `無料鑑定はこちらの公式LINE（${LINE_URL}）からどうぞ。`,
+  `公式LINE（${LINE_URL}）に、無料の鑑定があります。`,
+  `詳しく知りたいときは、公式LINE（${LINE_URL}）の無料鑑定へどうぞ。`,
+  `無料で試せます。公式LINE（${LINE_URL}）からどうぞ。`,
 ];
 
-// 禁止語（返信に含めてはいけない表現。効果保証・霊視・医療断定・URL・個別連絡）
-const FORBIDDEN = ['絶対', '必ず', '保証', '霊視', '当たります', '治り', '儲か', 'URL', 'http', 'LINE', 'DM'];
+// 禁止語（返信に含めてはいけない表現。効果保証・霊視・医療断定・個別連絡DM）
+// R社長のLINE導線切替に伴い、URL/http/LINE の禁止は撤去（公式LINEリンクを返信に載せるため）。DM直連は引き続き禁止。
+const FORBIDDEN = ['絶対', '必ず', '保証', '霊視', '当たります', '治り', '儲か', 'DM'];
 
 const MAX_LEN = 120;
 
@@ -66,7 +69,7 @@ function buildLightReading(replyText, idx, canGuide) {
   const reading = LIGHT_READING_VARIANTS[idx % LIGHT_READING_VARIANTS.length];
   const core = `${prefix}そのお悩み、読みました。${reading}`;
   if (!canGuide) return core; // 同一ユーザー2回目以降は誘導なし（受け止め＋見立てのみ）
-  return `${core}詳しくはプロフィールのリンクに、生年月日だけで出る無料の鑑定があります。`;
+  return `${core}詳しくは公式LINE（${LINE_URL}）に、生年月日だけで出る無料の鑑定があります。`;
 }
 
 /** 返信テキストの分類。返信テキストのみで判定する（spec §1） */
