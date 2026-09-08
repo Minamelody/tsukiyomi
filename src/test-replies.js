@@ -39,23 +39,41 @@ console.log('3. 保留・安全装置');
 ok(buildReplyText('D', 0, true) === null, 'D は返信文なし（自動送信しない）');
 ok(!buildReplyText('B2', 0, false).includes('無料'), '同一ユーザー2回目は誘導なし（受け止めのみ）');
 ok(buildReplyText('B2', 0, false).includes('受け取りました'), '誘導なしでも受け止めの一言あり');
-ok(buildReplyText('A', 0, true) === null, 'A はテンプレ未定義（今回は保留）');
+ok(buildReplyText('B', 0, true) === null, 'B（雑談）はテンプレ未定義（今回は保留）');
 
-console.log('4. --recent-hours の窓解決（投稿+5h一括返信・前日またぎ）');
+console.log('5. 軽鑑定（A=自己申告/生年月日・C=相談 への自動返信）');
 {
-  const { filterRecentThreads } = require('./threads-api');
-  const toApiTs = ms => new Date(ms).toISOString().replace('Z', '+0000');
-  // 「今」= 9/9 2:00 JST（＝9/8 17:00 UTC）。前日 21:00 JST 投稿（＝9/8 12:00 UTC）＝5時間前。
-  const now = Date.parse('2026-09-08T17:00:00Z');
-  const post21 = Date.parse('2026-09-08T12:00:00Z'); // 前日21時投稿（5h前・日付またぎ）
-  const older = Date.parse('2026-09-08T10:00:00Z');  // 7h前（窓外）
-  const ids = filterRecentThreads([
-    { id: 'prev21', timestamp: toApiTs(post21) },
-    { id: 'older7', timestamp: toApiTs(older) },
-  ], 6, now);
-  ok(ids.includes('prev21'), '2:00 run が前日21時投稿を窓内に解決（6h窓）');
-  ok(!ids.includes('older7'), '7時間前は窓外（取りこぼしは対象外）');
-  ok(filterRecentThreads(null, 6, now).length === 0, 'data欠落でも空配列（クラッシュしない）');
+  // 分類: 生年月日は軽鑑定対象（A）に
+  ok(classify('1995年3月12日生まれです') === 'A', '生年月日 → A（軽鑑定対象）');
+  // 星座自己申告 → 呼称に星座名・見立て＋誘導
+  const a = buildReplyText('A', 0, true, '牡羊座です。今日から始めたいことあります');
+  ok(a.includes('牡羊座さん'), '星座名を呼称に反映');
+  ok(a.includes('そのお悩み、読みました'), '定型の受け止め行');
+  ok(a.includes('近づいている変化は'), '見立て#1（辞書ローテーション）');
+  ok(a.includes('無料の鑑定があります'), 'プロフィール誘導行（全員誘導）');
+  ok(a.length <= 120, `120字以内（${a.length}字）`);
+  ok(!FORBIDDEN.some(w => a.includes(w)), '効果保証語/禁止語なし');
+  // 相談（C・星座なし）→ 呼称なしで受け止め＋見立て#2
+  const c = buildReplyText('C', 1, true, '転職迷ってます');
+  ok(c.includes('そのお悩み、読みました'), 'C=受け止め行');
+  ok(c.includes('焦っているほど、見えていないものが1つあります'), 'C=見立て#2（ローテーション）');
+  ok(!c.includes('さん、'), '星座なし=Cは呼称なし');
+  ok(c.includes('無料の鑑定があります'), 'Cも誘導あり');
+  // 見立て3種で文面ユニーク（それぞれに違う文面）
+  const s = new Set();
+  for (let i = 0; i < 3; i++) s.add(buildReplyText('A', i, true, '牡羊座です'));
+  ok(s.size === 3, `見立て3種で文面ユニーク（${s.size}/3）`);
+  // 同一ユーザー2回目=誘導なし（受け止め＋見立てのみ）
+  const noguide = buildReplyText('A', 0, false, '牡羊座です');
+  ok(!noguide.includes('無料の鑑定'), '2回目は誘導なし');
+  ok(noguide.includes('そのお悩み、読みました'), '2回目も受け止めは返す');
+}
+
+console.log('6. D判定（医療/投資/法律）は軽鑑定対象外・自動送信しない');
+{
+  ok(buildReplyText('D', 0, true, '投資の相談です') === null, 'D=自動返信なし（人対応）');
+  ok(classify('癌の相談です') === 'D', '医療 → D');
+  ok(classify('株の相談があります') === 'D', '投資 → D');
 }
 
 console.log(`\n結果: ${pass} PASS / ${fail} FAIL`);

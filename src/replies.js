@@ -42,6 +42,33 @@ const FORBIDDEN = ['絶対', '必ず', '保証', '霊視', '当たります', '�
 
 const MAX_LEN = 120;
 
+// 軽鑑定（文章リプ A=自己申告/生年月日・C=相談 への返信）。Designer 3831339 確定版・Tech Lead QA合格。
+// 定型: 〔{星座}さん、〕そのお悩み、読みました。{見立て}〔詳しくはプロフィールのリンクに、生年月日だけで出る無料の鑑定があります。〕
+// 見立ては辞書3種ローテーション（データ駆動・差し替え可）。効果保証語（必ず/絶対/保証）不使用・2行以内・120字内。
+// 医療/投資/法律=分類D=自動送信しない（人対応のまま）。誘導は基本全員・同一ユーザー1回のみ維持。
+const LIGHT_READING_VARIANTS = [
+  '近づいている変化は、あなたが思うより早く来ます。',
+  '焦っているほど、見えていないものが1つあります。',
+  '迷いは、2日以内に理由がはっきりします。',
+];
+
+const ZODIAC_NAMES = ['牡羊座', '牡牛座', '双子座', '蟹座', '獅子座', '乙女座', '天秤座', '蠍座', '射手座', '山羊座', '水瓶座', '魚座'];
+
+/** 返信テキストから星座名を取り出す（呼称に使う）。無ければ null */
+function extractZodiac(text) {
+  return ZODIAC_NAMES.find(z => (text || '').includes(z)) || null;
+}
+
+/** 軽鑑定の返信文（A/C）。星座名があれば呼称に、無ければ受け止めのみ。誘導は canGuide に従う */
+function buildLightReading(replyText, idx, canGuide) {
+  const z = extractZodiac(replyText);
+  const prefix = z ? `${z}さん、` : '';
+  const reading = LIGHT_READING_VARIANTS[idx % LIGHT_READING_VARIANTS.length];
+  const core = `${prefix}そのお悩み、読みました。${reading}`;
+  if (!canGuide) return core; // 同一ユーザー2回目以降は誘導なし（受け止め＋見立てのみ）
+  return `${core}詳しくはプロフィールのリンクに、生年月日だけで出る無料の鑑定があります。`;
+}
+
 /** 返信テキストの分類。返信テキストのみで判定する（spec §1） */
 function classify(text) {
   const t = (text || '').trim();
@@ -53,13 +80,15 @@ function classify(text) {
   if (!hasWord) return 'B2';
   // C: 相談（悩み・迷い）
   if (/迷|悩|つらい|しんどい|うまくいか|別れ|復縁|好き|恋|転職|疲れ/.test(t)) return 'C';
-  // A: 自己申告（星座名・余り・当たってた）
+  // A: 自己申告（星座名・余り・当たってた・生年月日）
   if (/座|牡羊|牡牛|双子|蟹|獅子|乙女|天秤|蠍|射手|山羊|水瓶|魚|余り|当たって/.test(t)) return 'A';
+  // 生年月日（自己申告・軽鑑定対象）
+  if (/\d{4}\s*[年/.\-]\s*\d{1,2}\s*[月/.\-]\s*\d{1,2}/.test(t)) return 'A';
   return 'B';
 }
 
 /** 返信文を生成する。送れない場合は null（D・テンプレ未定義・禁止語・文字数超過は呼び出し側で保留） */
-function buildReplyText(cls, idx, canGuide) {
+function buildReplyText(cls, idx, canGuide, replyText = '') {
   if (cls === 'D') return null;
   if (cls === 'B2') {
     const receive = RECEIVE_VARIANTS[idx % RECEIVE_VARIANTS.length];
@@ -67,7 +96,10 @@ function buildReplyText(cls, idx, canGuide) {
     const guide = GUIDE_VARIANTS[idx % GUIDE_VARIANTS.length];
     return `${receive}\n${guide}`;
   }
-  // A/B/C は今後の枠（今回は B2 のみ実運用）。テンプレ未定義として保留。
+  if (cls === 'A' || cls === 'C') {
+    return buildLightReading(replyText, idx, canGuide);
+  }
+  // B（雑談）は今後の枠。テンプレ未定義として保留。
   return null;
 }
 
@@ -107,11 +139,11 @@ async function run({ userId, token, mediaId, postType = 'unknown', dryRun = fals
   for (const r of pending) {
     const cls = classify(r.text);
     const canGuide = !state.userGuided[r.username]; // 誘導は基本全員、同一ユーザー1回のみ維持
-    const text = buildReplyText(cls, cursor, canGuide);
+    const text = buildReplyText(cls, cursor, canGuide, r.text);
 
     let holdReason = '';
     if (cls === 'D') holdReason = '分類D（自動送信しない）';
-    else if (!text) holdReason = 'テンプレ未定義（A/B/Cは今後）';
+    else if (!text) holdReason = 'テンプレ未定義（B雑談は今後）';
     else if (FORBIDDEN.some(w => text.includes(w))) holdReason = '禁止語';
     else if (text.length > MAX_LEN) holdReason = '120字超過';
 
@@ -123,7 +155,11 @@ async function run({ userId, token, mediaId, postType = 'unknown', dryRun = fals
       text: text || '',
       classification: cls,
       matched_rule: cls,
-      template: text ? (canGuide ? 'b2-receive-guide' : 'b2-receive') : '',
+      template: text
+        ? (cls === 'B2'
+            ? (canGuide ? 'b2-receive-guide' : 'b2-receive')
+            : (canGuide ? 'light-reading-guide' : 'light-reading'))
+        : '',
       status: holdReason ? 'hold' : 'dry-run',
       hold_reason: holdReason,
       guide: false,
