@@ -77,6 +77,11 @@ class ThreadsClient {
     return this._get(`${mediaId}/conversation`, { fields });
   }
 
+  /** 自分の投稿（スレッド上位）一覧を取得する。返信runで「当日の投稿ID」を自動解決するために使う */
+  async listThreads(fields = 'id,timestamp,permalink,media_type') {
+    return this._get(`${this.userId}/threads`, { fields });
+  }
+
   /** 残りの投稿枠を確認する（24時間で250件） */
   async publishingLimit() {
     const url = new URL(`${BASE}/${this.userId}/threads_publishing_limit`);

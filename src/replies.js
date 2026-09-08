@@ -1,10 +1,14 @@
 // src/replies.js — Threads 返信パイプライン（自動返信）
 //
 // 未返信のリプライを取得 → 分類(D/C/A/B2/B) → 安全装置 → 辞書から返信文生成 → reply_to_id で送信 → ログ。
-// 安全装置（spec §5）: Dは自動送信しない／誘導率カウンタ(直近20中7)／同一ユーザー誘導1回／120字上限／禁止語／誘導辞書ローテーション。
+// 安全装置（spec §5・2026-09-08 改訂）: Dは自動送信しない／同一ユーザー誘導1回／120字上限／禁止語。
+//   誘導は基本全員に入れる（R社長 2026-09-08「誘導は基本全員」＝誘導率カウンタ撤廃）。
+//   文面は「受取行×誘導行」を組合わせてローテーションし、同じ投稿内で同じ文面を並べない（R社長「それぞれに違う文面」）。
 // 未返信判定は conversation 方式: 自分の返信(replied_to)を突き合わせ、まだ返していないリプライだけを対象にする。
 //
-// 使い方（CLI）: node tools/run-replies.js --media-id <id> [--post-type fomo] [--dry-run]
+// 使い方（CLI）:
+//   node tools/run-replies.js --media-id <id> [--post-type fomo] [--dry-run]
+//   node tools/run-replies.js --recent-hours <N> [--post-type ...] [--dry-run]
 
 const fs = require('fs');
 const path = require('path');
@@ -13,6 +17,17 @@ const { ThreadsClient } = require('./threads-api');
 const OUT = path.join(__dirname, '..', 'out');
 const LOG_PATH = path.join(OUT, 'reply-log.jsonl');
 const STATE_PATH = path.join(OUT, 'reply-state.json');
+
+// 返信文の辞書。
+// 受取行（spec §7 誘導なし版より・絵文字に依存しない）と誘導行（spec §3 確定版・4種）を
+// カーソルで順に回し、組合わせを変えることで「同じ投稿内で同じ文面を並べない」
+// （R社長 2026-09-08「それぞれに違う文面」）。受取3種×誘導4種＝12通りのユニーク文面。
+// 誘導は基本全員に入れる（R社長 2026-09-08「誘導は基本全員」）。同一ユーザー1回のみ維持。
+const RECEIVE_VARIANTS = [
+  '受け取りました。動き始めているようです。',
+  '届いています。兆しは静かに出るものです。',
+  '置いてくれたのですね。ちゃんと見えています。',
+];
 
 // 誘導文は辞書からローテーション（LLMに生成させない＝表現の暴走防止）。spec §3 確定版。
 const GUIDE_VARIANTS = [
@@ -26,12 +41,6 @@ const GUIDE_VARIANTS = [
 const FORBIDDEN = ['絶対', '必ず', '保証', '霊視', '当たります', '治り', '儲か', 'URL', 'http', 'LINE', 'DM'];
 
 const MAX_LEN = 120;
-const GUIDE_WINDOW = 20; // 誘導率カウンタの窓
-const GUIDE_MAX = 7;     // 直近20件中の誘導上限（3割）
-
-// B2（絵文字のみ）の受け取りの一言。🌙の約束（「視えたままを返す」）をそのまま回収する。
-const B2_RECEIVE = '🌙、受け取りました。視えたままを、お返しします。';
-const B2_RECEIVE_NO_GUIDE = '🌙、受け取りました。';
 
 /** 返信テキストの分類。返信テキストのみで判定する（spec §1） */
 function classify(text) {
@@ -50,12 +59,13 @@ function classify(text) {
 }
 
 /** 返信文を生成する。送れない場合は null（D・テンプレ未定義・禁止語・文字数超過は呼び出し側で保留） */
-function buildReplyText(cls, guideIdx, canGuide) {
+function buildReplyText(cls, idx, canGuide) {
   if (cls === 'D') return null;
   if (cls === 'B2') {
-    if (!canGuide) return B2_RECEIVE_NO_GUIDE;
-    const guide = GUIDE_VARIANTS[guideIdx % GUIDE_VARIANTS.length];
-    return `${B2_RECEIVE}\n${guide}`;
+    const receive = RECEIVE_VARIANTS[idx % RECEIVE_VARIANTS.length];
+    if (!canGuide) return receive; // 同一ユーザー2回目以降は誘導なし（受け止めのみ）
+    const guide = GUIDE_VARIANTS[idx % GUIDE_VARIANTS.length];
+    return `${receive}\n${guide}`;
   }
   // A/B/C は今後の枠（今回は B2 のみ実運用）。テンプレ未定義として保留。
   return null;
@@ -96,8 +106,7 @@ async function run({ userId, token, mediaId, postType = 'unknown', dryRun = fals
 
   for (const r of pending) {
     const cls = classify(r.text);
-    const guideCount = state.recent.filter(x => x.guide).length;
-    const canGuide = guideCount < GUIDE_MAX && !state.userGuided[r.username];
+    const canGuide = !state.userGuided[r.username]; // 誘導は基本全員、同一ユーザー1回のみ維持
     const text = buildReplyText(cls, cursor, canGuide);
 
     let holdReason = '';
@@ -126,8 +135,6 @@ async function run({ userId, token, mediaId, postType = 'unknown', dryRun = fals
       entry.reply_id = sent.postId;
       entry.status = 'sent';
       entry.guide = canGuide;
-      state.recent.push({ username: r.username, guide: canGuide, at: Date.now() });
-      if (state.recent.length > GUIDE_WINDOW) state.recent = state.recent.slice(-GUIDE_WINDOW);
       if (canGuide) state.userGuided[r.username] = true;
       cursor += 1;
     } else if (!holdReason && dryRun) {
@@ -144,4 +151,4 @@ async function run({ userId, token, mediaId, postType = 'unknown', dryRun = fals
   return results;
 }
 
-module.exports = { run, classify, buildReplyText, GUIDE_VARIANTS, FORBIDDEN };
+module.exports = { run, classify, buildReplyText, RECEIVE_VARIANTS, GUIDE_VARIANTS, FORBIDDEN };
