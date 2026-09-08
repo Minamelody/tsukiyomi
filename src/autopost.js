@@ -8,6 +8,7 @@
 //
 // 重複防止のため投稿履歴を out/post-history.json に保存する。
 // 同一文面の再投稿はシャドウバンの主要因なので履歴は消さないこと。
+// さらに「同日×同スロット」の再実行ガードを持つ（ランナー二重起動による二重投稿を防ぐ）。
 // v2: 文面は選日・時辰の実データで生成（senjitsu/rarity）。投稿後にカードを
 //     ベストエフォート生成（design/cards/out/<date>/slot<N>.png）。失敗しても投稿は成功扱い。
 // v2.2: カードがPagesで配信済み（https://minamelody.github.io/tsukiyomi/cards/<date>/slot<N>.png が200）なら
@@ -19,7 +20,7 @@ const { planDay } = require('./threads-posts');
 const { ThreadsClient } = require('./threads-api');
 const { genCard } = require('./cards');
 
-const HIST_PATH = path.join(__dirname, '..', 'out', 'post-history.json');
+const HIST_PATH = process.env.AUTOPOST_HISTORY || path.join(__dirname, '..', 'out', 'post-history.json');
 const MAX_HIST = 500;
 const CARD_PUBLIC_BASE = process.env.CARD_PUBLIC_BASE || 'https://minamelody.github.io/tsukiyomi/cards';
 
@@ -37,6 +38,17 @@ function arg(name, def) {
   return i > -1 ? (process.argv[i + 1] ?? true) : def;
 }
 
+/**
+ * 履歴に「同じJST日付×同じスロット」の投稿済みがすでにあるか。
+ * ランナーの二重起動（同日・同スロットの再実行）を検知する二重投稿ガード。
+ * @param {Array} history 投稿履歴（各要素は { date, slot, postId, ... }）
+ * @param {string} date JST 'YYYY-MM-DD'
+ * @param {number} slot 0〜3
+ */
+function alreadyPosted(history, date, slot) {
+  return (history || []).some(h => h.date === date && h.slot === slot);
+}
+
 /** カードの公開URLが配信済みか（200）を確認する。配信済みならURLを返す */
 async function publishedCardUrl(date, slot) {
   if (process.argv.includes('--dry-run')) return null;
@@ -52,6 +64,7 @@ async function publishedCardUrl(date, slot) {
 
 async function main() {
   const dryRun = process.argv.includes('--dry-run');
+  const force = process.argv.includes('--force');
   const slot = Number(arg('slot', 0));
   const perDay = Number(arg('per-day', 4));
   // 日本時間で「今日」を決める（投稿の運用は日本時間基準）
@@ -59,6 +72,16 @@ async function main() {
   const date = jst.toISOString().slice(0, 10);
 
   const history = loadHistory();
+
+  // 同日・同スロットの再投稿ガード。--dry-run は常にプレビューを通す（投稿しないので）。
+  // --force で明示的に再投稿したい場合のみスキップを回避できる（例: 重複の一方をR社長が
+  // アプリ側で削除した後に、その枠を正当に再投稿するケース）。
+  if (!dryRun && !force && alreadyPosted(history, date, slot)) {
+    const ids = history.filter(h => h.date === date && h.slot === slot).map(h => h.postId).join(', ');
+    console.log(`[${date}] slot=${slot} は投稿済みです（postId=${ids}）。二重投稿を防ぐため実行をスキップします。再投稿する場合は --force を付けてください。`);
+    return;
+  }
+
   const recentTexts = history.map(h => h.text);
   const posts = await planDay(date, perDay, recentTexts);
   const post = posts[slot % posts.length];
@@ -110,4 +133,8 @@ async function main() {
   saveHistory(history);
 }
 
-main().catch(e => { console.error('失敗:', e.message); process.exit(1); });
+if (require.main === module) {
+  main().catch(e => { console.error('失敗:', e.message); process.exit(1); });
+}
+
+module.exports = { alreadyPosted, loadHistory, saveHistory };
