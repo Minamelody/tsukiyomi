@@ -224,6 +224,59 @@ async function main() {
     ok(bad === 0, `カードテンプレ正・夜枠はテキストのみ（不正: ${bad}）`);
   }
 
+  console.log('14. 深夜枠（slot3・問いかけ型）の構造とフォロー行');
+  {
+    const posts = await planDay('2026-09-07', 4, []);
+    const m = posts[3];
+    ok(m.type === 'type_midnight', `slot3=深夜枠（実際: ${m.type}）`);
+    ok(/深夜2時/.test(m.text), '時刻語「深夜2時」で時間限定の宣言');
+    ok(/開ける人は、ほとんどいません/.test(m.text), '「開ける人は、ほとんどいません」＝選ばれた感');
+    ok(/前触れ/.test(m.text), '前触れ行あり');
+    ok(/？/.test(m.text), '答えやすい問い（？）で締める＝リプ促し');
+    ok(/書いてみてください/.test(m.text), '「答えられる範囲で、書いてみてください」');
+    ok(/フォローして/.test(m.text), 'フォロー誘導行あり');
+    ok(m.cardSpec === null, 'テキストのみ（cardSpec null・画像添付しない）');
+    console.log('  --- 深夜枠本文 ---'); console.log(m.text.split('\n').map(l => '  ' + l).join('\n'));
+  }
+
+  console.log('15. 深夜枠の問いプールは10日一周・連続日重複なし・通年で破綻/禁止語なし');
+  {
+    const { buildTypeMidnight } = require('./threads-posts');
+    const seen = [];
+    for (let k = 0; k < 10; k++) {
+      const d = new Date(Date.UTC(2026, 8, 9 + k)); // 9/9 から10日分
+      seen.push(buildTypeMidnight(d.toISOString().slice(0, 10)).text);
+    }
+    ok(new Set(seen).size === 10, `10日間で重複なし（${new Set(seen).size}/10）`);
+    ok(buildTypeMidnight('2026-09-09').text === buildTypeMidnight('2026-09-19').text, '10日で一周（9/9 == 9/19）');
+    ok(buildTypeMidnight('2026-09-09').text !== buildTypeMidnight('2026-09-10').text, '9/9 ≠ 9/10（日替わり）');
+    ok(buildTypeMidnight('2026-09-09').text.includes('明日、何を変えたいですか'), '9/9=問い#1');
+    ok(buildTypeMidnight('2026-09-13').text.includes('今夜、忘れてしまいたいことは'), '9/13=問い#5（「手放し」差し替え版）');
+    // 通年スイープ
+    let broken = 0, bad = 0;
+    for (let m = 1; m <= 12; m++) {
+      const dim = new Date(Date.UTC(2026, m, 0)).getUTCDate();
+      for (let d = 1; d <= dim; d++) {
+        const day = `2026-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        const t = buildTypeMidnight(day).text;
+        if (!t || /undefined|NaN|null/.test(t)) broken++;
+        for (const w of FORBIDDEN) if (t.includes(w)) { bad++; console.log(`    混入: ${day} -> ${w}`); }
+      }
+    }
+    ok(broken === 0, `通年で破綻なし（破綻: ${broken}）`);
+    ok(bad === 0, `深夜枠に禁止語なし（混入: ${bad}）`);
+  }
+
+  console.log('16. フォロー誘導行が全スロット末尾にある');
+  {
+    const mon = await planDay('2026-09-07', 4, []); // 月曜: 型A/型FOMO/型T3夜/深夜枠
+    for (const p of mon) ok(/フォローして/.test(p.text), `${p.type} にフォロー誘導行あり`);
+    const b = await planDay('2026-09-10', 4, []); // 9/10=暦ゼロ→slot0=型B
+    ok(/フォローして/.test(b[0].text), '型B にフォロー誘導行あり');
+    const sun = await planDay('2026-09-06', 4, []); // 日曜: slot2=型D
+    ok(/フォローして/.test(sun[2].text), '型D にフォロー誘導行あり');
+  }
+
   console.log(`\n結果: ${pass} PASS / ${fail} FAIL`);
   process.exit(fail ? 1 : 0);
 }

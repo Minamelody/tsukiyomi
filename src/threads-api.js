@@ -105,4 +105,19 @@ class ThreadsClient {
   }
 }
 
-module.exports = { ThreadsClient };
+/**
+ * 直近N時間に投稿された上位スレッドのIDを返す（返信runの窓解決用）。
+ * 時刻（epoch ms）ベースなので「前日21時投稿→翌2時run」のような日付またぎも自然に扱える。
+ * @param {Array} data listThreads() の data 配列（{id, timestamp, ...}）
+ * @param {number} hours 窓の時間数
+ * @param {number} nowMs 基準時刻（既定=実行時点）
+ * @returns {string[]}
+ */
+function filterRecentThreads(data, hours, nowMs = Date.now()) {
+  const cutoff = nowMs - hours * 3600 * 1000;
+  return (Array.isArray(data) ? data : [])
+    .filter(t => t && t.id && t.timestamp && !Number.isNaN(new Date(t.timestamp).getTime()) && new Date(t.timestamp).getTime() > cutoff)
+    .map(t => t.id);
+}
+
+module.exports = { ThreadsClient, filterRecentThreads };

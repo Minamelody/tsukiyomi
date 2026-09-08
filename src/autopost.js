@@ -53,7 +53,7 @@ async function publishedCardUrl(date, slot) {
 async function main() {
   const dryRun = process.argv.includes('--dry-run');
   const slot = Number(arg('slot', 0));
-  const perDay = Number(arg('per-day', 3));
+  const perDay = Number(arg('per-day', 4));
   // 日本時間で「今日」を決める（投稿の運用は日本時間基準）
   const jst = new Date(Date.now() + 9 * 3600 * 1000);
   const date = jst.toISOString().slice(0, 10);

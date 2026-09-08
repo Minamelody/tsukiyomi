@@ -133,6 +133,17 @@ function hash(s) {
   return h >>> 0;
 }
 
+// フォロー誘導行（Designer 6種・2026-09-08）。各スロットの本文末尾に自然に添える（おねだり感ゼロ）。
+// 型D(日曜)は「標準」を使う。2禁・効果保証語なし。R社長「フォロー誘導も自然に入れて」対応。
+const FOLLOW_LINES = {
+  type_a:      'フォローして、明日の暦も迎えに来てください。',
+  type_b:      'フォローして、明日のあなたの欄を読みに来てください。',
+  type_fomo:   'フォローして、明日の🌙も迎えに来てください。',
+  type_night:  'フォローして、明日の夜も迎えに来てください。',
+  type_d:      'フォローして、迎えをお待ちください。',
+  type_midnight: 'フォローして、またこの時間に迎えに来てください。',
+};
+
 // ── v2 ビルダー ─────────────────────────────────────────────────────────
 
 /** T1（朝・選日型。useT1の日のみ） */
@@ -409,6 +420,7 @@ function buildTypeA(dateStr, facts, r, opts = {}) {
   } else {
     lines.push(flow.question);
   }
+  lines.push('', FOLLOW_LINES.type_a);
 
   const wd = WEEKDAYS[new Date(Date.UTC(y, m - 1, d)).getUTCDay()];
   const cardSpec = {
@@ -425,6 +437,7 @@ function buildTypeA(dateStr, facts, r, opts = {}) {
 function buildTypeB(dateStr, r) {
   const v = TYPE_B_VARIANTS[Math.floor(r() * TYPE_B_VARIANTS.length)];
   const lines = v.flatMap((line, i) => (i === 0 ? [line] : ['', line]));
+  lines.push('', FOLLOW_LINES.type_b);
   const cardSpec = {
     template: 'seiza',
     title: '今日の12星座',
@@ -464,7 +477,7 @@ const TYPE_FOMO_CARD = {
 
 /** 型FOMO（13時・🌙FOMOミーム）。定型文で固定（ミーム＝コピペ伝播が目的）。 */
 function buildTypeFomo() {
-  return { type: 'type_fomo', tag: 'fomo', text: TYPE_FOMO_TEXT.join('\n'), cardSpec: { ...TYPE_FOMO_CARD } };
+  return { type: 'type_fomo', tag: 'fomo', text: [...TYPE_FOMO_TEXT, '', FOLLOW_LINES.type_fomo].join('\n'), cardSpec: { ...TYPE_FOMO_CARD } };
 }
 
 /** 型D（週1・診断ミニ型）。余り診断で「自分の結果を返信したくなる」構造。 */
@@ -476,6 +489,8 @@ function buildTypeD(dateStr, r) {
     ...TYPE_D_BRANCHES.map(b => `${b.r}＝${b.name}（${b.line}）`),
     '',
     'あなたは、どのタイプでしたか。',
+    '',
+    FOLLOW_LINES.type_d,
   ];
   // カードは本文の短縮表現（label＋2行）。make_shindan が「余り0」ラベル＋2行で描く。
   const cardSpec = {
@@ -500,24 +515,65 @@ function buildTypeNight(dateStr) {
     `${inner}その感覚、当たってます。`,
     'このまま流されたら、また何も変わらない。',
     '五つの占術が同じことを指していたら、そのままお伝えします。',
+    '',
+    FOLLOW_LINES.type_night,
   ];
   // 夜枠はテキストのみ（カードテンプレート未設計・夜の独白型なので付けない）
   return { type: 'type_night', tag: 'night', text: lines.join('\n'), cardSpec: null };
 }
 
+// ── 深夜枠（4枠目・2:00 JST・task #17・問いかけ型） ─────────────────────
+// R社長「1日4回・4回目は深夜だけ見てる人限定」＋「8割は頻度でリプ促し」。テキストのみ・カードなし。
+// 4層構造（DR分析 #15 §6）: 時間限定の宣言 → 選ばれた感 → 前触れ → 答えやすい問い。
+// 問いはデータ駆動辞書からJST日付キーの決定論ローテーション（同日同文面・連続日重複なし・10日一周）。
+// 「今夜返します」等の実行約束は入れない（返信は投稿+5hの一括返信ルール・実行しない約束は2禁相当）。
+// 時刻語は MIDNIGHT_TIME でパラメータ化（0時→2時確定後も文面再生成不要。Designer/DR QA済み）。
+const MIDNIGHT_TIME = '深夜2時';
+const MIDNIGHT_QUESTIONS = [
+  '明日、何を変えたいですか？',
+  '今夜、心に残ったことは、何ですか？',
+  '明日の朝、最初に何をしますか？',
+  'この一週間、ずっと気になっていることは？',
+  '今夜、忘れてしまいたいことは、ありますか？',
+  '明日のあなたは、どこで変われそうですか？',
+  '今夜、スマホを置いたら、何を考えてますか？',
+  '明日のあなたに、一言だけ伝えるなら？',
+  '最近、一番「よかった」と思ったことは？',
+  '今夜は、どんな一日でしたか？',
+];
+const MIDNIGHT_EPOCH = Date.UTC(2026, 8, 9); // 初回デビュー 2026-09-09 深夜枠＝質問#1
+
+/** 深夜枠（2:00・問いかけ型）。テキストのみ・決定論ローテーション（JST日付キー・0時/2時＝新しい日）。 */
+function buildTypeMidnight(dateStr) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const t = Date.UTC(y, m - 1, d);
+  const diffDays = Math.round((t - MIDNIGHT_EPOCH) / 86400000);
+  const idx = ((diffDays % MIDNIGHT_QUESTIONS.length) + MIDNIGHT_QUESTIONS.length) % MIDNIGHT_QUESTIONS.length;
+  const q = MIDNIGHT_QUESTIONS[idx];
+  const lines = [
+    `${MIDNIGHT_TIME}。いま、この投稿を開ける人は、ほとんどいません。`,
+    'この時間にあなたがここにいるのは、明日が変わる前触れです。',
+    `今日のあなた、最後にひとつだけ。${q}`,
+    '答えられる範囲で、書いてみてください。',
+    FOLLOW_LINES.type_midnight,
+  ];
+  // テキストのみ（カードなし・夜の独白型の延長。まずは文面×深夜時間帯をA/B）
+  return { type: 'type_midnight', tag: 'midnight', text: lines.join('\n'), cardSpec: null };
+}
+
 /**
- * 1日分の投稿計画（v3・型A/B/D＋T3夜）。slot0=朝(型A暦) / slot1=昼(型B12星座) / slot2=夜。
+ * 1日分の投稿計画（v3・型A/B/D＋T3夜＋深夜枠）。slot0=朝(型A暦) / slot1=昼(型FOMO🌙) / slot2=夜(型D日曜/型T3夜) / slot3=深夜(問いかけ)。
  * slot2 は 日曜=型D(診断)、月〜土=型T3夜(煽り・暦非依存)。日曜型D は週1枠として維持（R社長 3741861）。
  * 型C(自己開示)はR社長の手動ストックのため対象外。
  * 選日モジュールが使えない・暦要素がゼロの日は、型Aを型Bで埋める／従来型へフォールバック。
  */
-async function planDay(date, count = 3, recent = [], opts = {}) {
+async function planDay(date, count = 4, recent = [], opts = {}) {
   const [y, m, d] = date.split('-').map(Number);
   const facts = await fetchDayFacts(y, m, d);
   if (!facts) return planDayLegacy(date, count, recent);
 
   const used = new Set(recent);
-  const kinds = ['type_a', 'type_fomo', isSunday(date) ? 'type_d' : 'type_night'];  // slot0/1/2
+  const kinds = ['type_a', 'type_fomo', isSunday(date) ? 'type_d' : 'type_night', 'type_midnight'];  // slot0/1/2/3
   const posts = [];
   for (let i = 0; i < Math.min(count, kinds.length); i++) {
     if (kinds[i] === 'type_a' && (!facts.typeAFacts || !facts.typeAFacts.length)) {
@@ -536,7 +592,9 @@ async function planDay(date, count = 3, recent = [], opts = {}) {
             ? buildTypeB(date, r)
             : kind === 'type_night'
               ? buildTypeNight(date)           // 決定論的（日替わり辞書ローテーション）
-              : buildTypeD(date, r);
+              : kind === 'type_midnight'
+                ? buildTypeMidnight(date)      // 決定論的（問いプール・JST日付キー）
+                : buildTypeD(date, r);
       post = cand;
       if (!used.has(cand.text)) break;
     }
@@ -633,4 +691,4 @@ function planDayLegacy(date, count = 3, recent = []) {
   return posts;
 }
 
-module.exports = { engagementPost, funnelPost, planDay, planDayLegacy, buildTypeB, buildTypeFomo, buildTypeNight, SCENES };
+module.exports = { engagementPost, funnelPost, planDay, planDayLegacy, buildTypeB, buildTypeFomo, buildTypeNight, buildTypeMidnight, SCENES };

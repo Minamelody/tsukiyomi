@@ -41,5 +41,22 @@ ok(!buildReplyText('B2', 0, false).includes('無料'), '同一ユーザー2回�
 ok(buildReplyText('B2', 0, false).includes('受け取りました'), '誘導なしでも受け止めの一言あり');
 ok(buildReplyText('A', 0, true) === null, 'A はテンプレ未定義（今回は保留）');
 
+console.log('4. --recent-hours の窓解決（投稿+5h一括返信・前日またぎ）');
+{
+  const { filterRecentThreads } = require('./threads-api');
+  const toApiTs = ms => new Date(ms).toISOString().replace('Z', '+0000');
+  // 「今」= 9/9 2:00 JST（＝9/8 17:00 UTC）。前日 21:00 JST 投稿（＝9/8 12:00 UTC）＝5時間前。
+  const now = Date.parse('2026-09-08T17:00:00Z');
+  const post21 = Date.parse('2026-09-08T12:00:00Z'); // 前日21時投稿（5h前・日付またぎ）
+  const older = Date.parse('2026-09-08T10:00:00Z');  // 7h前（窓外）
+  const ids = filterRecentThreads([
+    { id: 'prev21', timestamp: toApiTs(post21) },
+    { id: 'older7', timestamp: toApiTs(older) },
+  ], 6, now);
+  ok(ids.includes('prev21'), '2:00 run が前日21時投稿を窓内に解決（6h窓）');
+  ok(!ids.includes('older7'), '7時間前は窓外（取りこぼしは対象外）');
+  ok(filterRecentThreads(null, 6, now).length === 0, 'data欠落でも空配列（クラッシュしない）');
+}
+
 console.log(`\n結果: ${pass} PASS / ${fail} FAIL`);
 process.exit(fail ? 1 : 0);

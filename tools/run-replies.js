@@ -14,7 +14,7 @@
 // dry-run は送信せず、送信予定の返信文と分類・保留理由だけを表示する。
 
 const { run } = require('../src/replies');
-const { ThreadsClient } = require('../src/threads-api');
+const { ThreadsClient, filterRecentThreads } = require('../src/threads-api');
 
 function arg(name, def) {
   const i = process.argv.indexOf(`--${name}`);
@@ -44,10 +44,7 @@ async function main() {
     }
     const client = new ThreadsClient({ userId, accessToken: token });
     const threads = await client.listThreads();
-    const cutoff = Date.now() - h * 3600 * 1000;
-    mediaIds = (threads.data || [])
-      .filter(t => t.id && !Number.isNaN(new Date(t.timestamp).getTime()) && new Date(t.timestamp).getTime() > cutoff)
-      .map(t => t.id);
+    mediaIds = filterRecentThreads(threads.data, h);
     if (mediaIds.length === 0) {
       console.log(`直近${h}時間の投稿はありません。`);
       return;
