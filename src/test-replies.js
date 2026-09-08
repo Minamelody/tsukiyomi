@@ -30,10 +30,10 @@ console.log('2. B2返信文（受け取り＋誘導＝全員誘導）');
   ok(!FORBIDDEN.some(w => t.includes(w)), '禁止語なし');
   // 全員誘導：カーソルが進んでも誘導が入る（誘導率カウンタ撤廃・R社長 2026-09-08）
   ok(buildReplyText('B2', 20, true).includes('無料'), 'カーソルが進んでも誘導あり（カウンタ撤廃）');
-  // 文面は受取×誘導の組合わせでローテーション → 12通りのユニーク文面（「それぞれに違う文面」）
+  // 文面は受取×誘導の組合わせでローテーション → 9通りのユニーク文面（「それぞれに違う文面」）
   const set = new Set();
-  for (let i = 0; i < 12; i++) set.add(buildReplyText('B2', i, true));
-  ok(set.size === 12, `12通りすべてユニーク（${set.size}通り）＝同じ文面を並べない`);
+  for (let i = 0; i < 9; i++) set.add(buildReplyText('B2', i, true));
+  ok(set.size === 9, `9通りすべてユニーク（${set.size}通り）＝同じ文面を並べない`);
 }
 
 console.log('3. 保留・安全装置');
@@ -51,7 +51,7 @@ console.log('5. 軽鑑定（A=自己申告/生年月日・C=相談 への自動�
   ok(a.includes('牡羊座さん'), '星座名を呼称に反映');
   ok(a.includes('そのお悩み、読みました'), '定型の受け止め行');
   ok(a.includes('近づいている変化は'), '見立て#1（辞書ローテーション）');
-  ok(a.includes('無料の鑑定があります'), '公式LINE誘導行（全員誘導）');
+  ok(a.includes('こちらのLINEから'), '公式LINE誘導行（全員誘導）');
   ok(a.includes('https://lin.ee/oSQE3an'), '軽鑑定にもLINEリンク');
   ok(a.length <= 120, `120字以内（${a.length}字）`);
   ok(!FORBIDDEN.some(w => a.includes(w)), '効果保証語/禁止語なし');
@@ -60,7 +60,7 @@ console.log('5. 軽鑑定（A=自己申告/生年月日・C=相談 への自動�
   ok(c.includes('そのお悩み、読みました'), 'C=受け止め行');
   ok(c.includes('焦っているほど、見えていないものが1つあります'), 'C=見立て#2（ローテーション）');
   ok(!c.includes('さん、'), '星座なし=Cは呼称なし');
-  ok(c.includes('無料の鑑定があります'), 'Cも誘導あり');
+  ok(c.includes('こちらのLINEから'), 'Cも誘導あり');
   // 見立て3種で文面ユニーク（それぞれに違う文面）
   const s = new Set();
   for (let i = 0; i < 3; i++) s.add(buildReplyText('A', i, true, '牡羊座です'));
@@ -76,6 +76,20 @@ console.log('6. D判定（医療/投資/法律）は軽鑑定対象外・自動�
   ok(buildReplyText('D', 0, true, '投資の相談です') === null, 'D=自動返信なし（人対応）');
   ok(classify('癌の相談です') === 'D', '医療 → D');
   ok(classify('株の相談があります') === 'D', '投資 → D');
+}
+
+console.log('7. 返信に載せるURLは公式LINEのみ（他URL・ココナラ・DMなし＝許可範囲の暴発防止）');
+{
+  const samples = [];
+  for (let i = 0; i < 9; i++) samples.push(buildReplyText('B2', i, true));
+  samples.push(buildReplyText('A', 0, true, '牡羊座です'));
+  samples.push(buildReplyText('C', 1, true, '転職迷ってます'));
+  const all = samples.join('\n');
+  ok(/https:\/\/lin\.ee\/oSQE3an/.test(all), '公式LINEリンクは含まれる');
+  const rest = all.split('https://lin.ee/oSQE3an').join('');
+  ok(!/https?:\/\//.test(rest), '公式LINE以外のURLは含まれない');
+  ok(!all.includes('ココナラ'), 'ココナラURLは誘導に載せない');
+  ok(!all.includes('DM'), 'DM直連は案内しない');
 }
 
 console.log(`\n結果: ${pass} PASS / ${fail} FAIL`);

@@ -29,14 +29,13 @@ const RECEIVE_VARIANTS = [
   '置いてくれたのですね。ちゃんと見えています。',
 ];
 
-// 誘導文は辞書からローテーション（LLMに生成させない＝表現の暴走防止）。spec §3 確定版。
-// 2026-09-08 R社長指示（3832619）で導線をLINE公式アカウントに切替：宛先を「プロフィールのリンク」→「公式LINE」＋リンク明記。
+// 誘導文は辞書からローテーション（LLMに生成させない＝表現の暴走防止）。
+// 2026-09-08 R社長指示（3832619）で導線をLINE公式アカウントに切替。誘導テール3型（Designer 最終文案 3833077）をサイクル。
 const LINE_URL = 'https://lin.ee/oSQE3an';
 const GUIDE_VARIANTS = [
-  `無料鑑定はこちらの公式LINE（${LINE_URL}）からどうぞ。`,
-  `公式LINE（${LINE_URL}）に、無料の鑑定があります。`,
-  `詳しく知りたいときは、公式LINE（${LINE_URL}）の無料鑑定へどうぞ。`,
-  `無料で試せます。公式LINE（${LINE_URL}）からどうぞ。`,
+  `無料鑑定はこちらのLINEからどうぞ。${LINE_URL}`,
+  `よければ、無料鑑定はこちらから。${LINE_URL}`,
+  `無料の5種鑑定はこちら。${LINE_URL}`,
 ];
 
 // 禁止語（返信に含めてはいけない表現。効果保証・霊視・医療断定・個別連絡DM）
@@ -69,7 +68,7 @@ function buildLightReading(replyText, idx, canGuide) {
   const reading = LIGHT_READING_VARIANTS[idx % LIGHT_READING_VARIANTS.length];
   const core = `${prefix}そのお悩み、読みました。${reading}`;
   if (!canGuide) return core; // 同一ユーザー2回目以降は誘導なし（受け止め＋見立てのみ）
-  return `${core}詳しくは公式LINE（${LINE_URL}）に、生年月日だけで出る無料の鑑定があります。`;
+  return `${core}詳しくは無料鑑定をこちらのLINEからどうぞ。${LINE_URL}`;
 }
 
 /** 返信テキストの分類。返信テキストのみで判定する（spec §1） */
@@ -96,7 +95,8 @@ function buildReplyText(cls, idx, canGuide, replyText = '') {
   if (cls === 'B2') {
     const receive = RECEIVE_VARIANTS[idx % RECEIVE_VARIANTS.length];
     if (!canGuide) return receive; // 同一ユーザー2回目以降は誘導なし（受け止めのみ）
-    const guide = GUIDE_VARIANTS[idx % GUIDE_VARIANTS.length];
+    // 受取（3種）と誘導（3型）を別レートで進める → 9通りのユニークな組み合わせ（「それぞれに違う文面」）
+    const guide = GUIDE_VARIANTS[Math.floor(idx / RECEIVE_VARIANTS.length) % GUIDE_VARIANTS.length];
     return `${receive}\n${guide}`;
   }
   if (cls === 'A' || cls === 'C') {
