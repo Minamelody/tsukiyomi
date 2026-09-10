@@ -32,6 +32,7 @@ const MODULES = [
   ['./shichu', 'src/shichu.js'],
   ['./tarot', 'src/tarot.js'],
   ['./astro', 'src/astro.js'],
+  ['./lunar-calendar', 'src/lunar-calendar.js'],
   ['./line-fortune', 'src/line-fortune.js'],
 ];
 

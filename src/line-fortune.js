@@ -17,6 +17,7 @@ const { seimeiHandan } = require('./seimei');
 const { shichuMeishiki } = require('./shichu');
 const { draw3 } = require('./tarot');
 const { horoscope } = require('./astro');
+const { isIchiryu, isBoso, isTenon, setsuDayInMonth } = require('./lunar-calendar');
 
 // ── 辞書（Designer 本命確定 3832105・現況 3832164・DR QA合格） ─────────────
 
@@ -154,6 +155,29 @@ function primaryChar(sei, mei) {
   return src[0];
 }
 
+/**
+ * ⑥運気の流れ。生まれ月（生年月日の年・月）の暦をスキャンして、実際の節入り・
+ * 一粒万倍日・天恩日から文言を作る（決定論・LLM非依存・外部暦＝senjitsu.py と同一判定）。
+ * 「今月」は生年月日に紐づけた生まれ月＝同じ入力なら毎回同一出力。
+ */
+function buildUnkiSec(y, m) {
+  const p2 = n => String(n).padStart(2, '0');
+  const daysInMonth = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  const ichiryu = [], tenon = [], boso = [];
+  for (let d = 1; d <= daysInMonth; d++) {
+    const ds = `${y}-${p2(m)}-${p2(d)}`;
+    if (isIchiryu(ds)) ichiryu.push(d);
+    if (isTenon(ds)) tenon.push(d);
+    if (isBoso(ds)) boso.push(d);
+  }
+  const setsu = setsuDayInMonth(y, m);
+  const setsuD = setsu ? setsu.dd : Math.min(15, daysInMonth);
+  const a = ichiryu[0] ?? (boso[0] ?? tenon[0] ?? setsuD);              // 吉日A（始める）
+  const b = ichiryu[1] ?? (ichiryu[0] ?? boso[0] ?? tenon[0] ?? setsuD); // 吉日B（始める・2本目）
+  const c = tenon[0] ?? (boso[0] ?? ichiryu[2] ?? setsuD);              // 片付日（手放し・片付け＝天恩日）
+  return `今月の流れの切り替わりは${m}月${setsuD}日のあたり。新しいことを始めるなら${m}月${a}日・${m}月${b}日、手放したり片づけたりするなら${m}月${c}日が向きやすいようです。一粒万倍日は、流れが重なる日です。`;
+}
+
 // ── レポート生成 ─────────────────────────────────────────────────────────
 
 /**
@@ -209,8 +233,8 @@ function buildReport({ sei = '', mei = '', birthday } = {}) {
   const tv = TAROT[nowCard.card] || TAROT['愚者'];
   const tarotSec = `いまのあなたの1枚は、${nowCard.card}（${nowCard.orientation}）。${tv.brief}。急がず、${tv.advice}を選ぶのが、自然な流れのようです。`;
 
-  // ⑥ 運気の流れ（暦の月内スキャンは次工程。決定論の安全な既定文で埋める）
-  const unkiSec = '今月の流れは、静かに巡っています。新しいことを始めるなら暦の重なる日、手放すなら潮の引くような日が向きやすいようです。暦を味方につけて、慌てず進める月です。';
+  // ⑥ 運気の流れ（生まれ月の暦スキャン・決定論）
+  const unkiSec = buildUnkiSec(y, m);
 
   const sections = [
     { head: null, body: greet },

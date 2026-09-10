@@ -4,6 +4,7 @@
 // 回帰5点（DR 3832028 §6）＋「同じ入力=毎回同一出力」（TL 3832064）＋名前なし版を検証。
 
 const { buildReport, qaCheck } = require('./line-fortune');
+const lc = require('./lunar-calendar');
 
 let pass = 0, fail = 0;
 function ok(cond, name) {
@@ -92,6 +93,37 @@ console.log('6. 不正な生年月日はエラーを投げる');
   try { buildReport({ sei: '佐藤', mei: '美咲', birthday: '2020/01/01' }); }
   catch (e) { threw = true; }
   ok(threw, 'YYYY-MM-DD以外は例外');
+}
+
+console.log('7. ⑥運気の流れ＝生まれ月の暦スキャン（実日付・決定論・旧既定文なし）');
+{
+  const r = buildReport({ sei: '佐藤', mei: '美咲', birthday: '1995-07-15' });
+  ok(r.text.includes('【運気の流れ】'), '運気セクション見出しあり');
+  ok(/今月の流れの切り替わりは7月7日のあたり/.test(r.text), '節入り=1995年7月7日（小暑・実測一致）');
+  ok(/一粒万倍日は、流れが重なる日です/.test(r.text), '一粒万倍日という暦名が出る');
+  ok(/7月\d+日・7月\d+日/.test(r.text), '吉日A/B は月内の実日付（7月○日・7月○日）');
+  ok(/手放したり片づけたりするなら7月\d+日/.test(r.text), '片付日は月内の実日付');
+  ok(!r.text.includes('静かに巡っています'), '旧プレースホルダー既定文は出ない（差し替え済み）');
+  // 決定論: 同じ入力なら同一
+  ok(buildReport({ sei: '佐藤', mei: '美咲', birthday: '1995-07-15' }).text === r.text, '⑥を含め同一入力=同一出力');
+}
+
+console.log('8. lunar-calendar（選日JSポート）が senjitsu.py と一致（固定クロスチェック表）');
+{
+  const expect = {
+    '2026-09-06': [7, true, true, true],   // 節月7・一粒万倍・母倉・天恩
+    '2026-09-07': [8, true, false, false], // 節月8・一粒万倍のみ
+    '2026-01-20': [12, false, true, false],// 節月12・母倉（三隣亡も）
+    '2026-02-04': [1, false, false, true], // 節月1（立春）・天恩
+    '1995-07-15': [6, false, false, false],
+  };
+  let bad = 0;
+  for (const [date, [setsu, ichi, boso, tenon]] of Object.entries(expect)) {
+    if (lc.setsuMonth(date) !== setsu || lc.isIchiryu(date) !== ichi || lc.isBoso(date) !== boso || lc.isTenon(date) !== tenon) {
+      bad++; console.log(`    不一致: ${date}`);
+    }
+  }
+  ok(bad === 0, `選日5日クロスチェック一致（不一致 ${bad}）`);
 }
 
 console.log(`\n結果: ${pass} PASS / ${fail} FAIL`);
