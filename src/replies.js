@@ -38,6 +38,19 @@ const GUIDE_VARIANTS = [
   `無料の5種鑑定はこちら。${LINE_URL}`,
 ];
 
+// B分類（雑談・お礼リプ）の返信文（2026-09-12 Designer追補・reply-guide.md「B分類」節）。
+// 対象: 「🌙ありがとうございます」等の短いお礼・雑談（🌙なしのお礼にも流用可）。
+// 受け取り＋軽い鑑定1行＋LINE誘導の3点セット。プール6本を1件ずつローテーション（プール内ユニーク維持）。
+// 誘導=基本全員・同一ユーザー1回。お礼への返しは断定を避け「〜ています／〜のようです」の緩衝表現に統一。
+const B_VARIANTS = [
+  '🌙、ありがとうございます。うれしいです。今夜のあなたには、静かに動き始める流れがあります。',
+  '🌙、置いてくださってありがとうございます。今夜のあなたには、迷いがほどけていく時間が来ています。',
+  '🌙、ありがとうございます。そのお言葉に、あなたの今の良い流れが表れています。',
+  '🌙、ありがとうございます。こんな夜に名前を残してくださって。あなたの運気は、静かに整っていくようです。',
+  '🌙、こちらこそありがとうございます。今夜のあなたには、ひとつ、はっきりした流れが来ています。',
+  '🌙、ありがとうございます。その一言が、今夜のあなたの運気を教えてくれました。',
+].map(t => `${t}${LINE_URL}`);
+
 // 禁止語（返信に含めてはいけない表現。効果保証・霊視・医療断定・個別連絡DM）
 // R社長のLINE導線切替に伴い、URL/http/LINE の禁止は撤去（公式LINEリンクを返信に載せるため）。DM直連は引き続き禁止。
 const FORBIDDEN = ['絶対', '必ず', '保証', '霊視', '当たります', '治り', '儲か', 'DM'];
@@ -102,7 +115,11 @@ function buildReplyText(cls, idx, canGuide, replyText = '') {
   if (cls === 'A' || cls === 'C') {
     return buildLightReading(replyText, idx, canGuide);
   }
-  // B（雑談）は今後の枠。テンプレ未定義として保留。
+  if (cls === 'B') {
+    // B（雑談・お礼）＝プール6本を1件ずつローテーション。同一ユーザー2回目以降は誘導（URL）なしの受け取りのみ。
+    const b = B_VARIANTS[idx % B_VARIANTS.length];
+    return canGuide ? b : b.replace(LINE_URL, '').trim();
+  }
   return null;
 }
 
@@ -146,7 +163,7 @@ async function run({ userId, token, mediaId, postType = 'unknown', dryRun = fals
 
     let holdReason = '';
     if (cls === 'D') holdReason = '分類D（自動送信しない）';
-    else if (!text) holdReason = 'テンプレ未定義（B雑談は今後）';
+    else if (!text) holdReason = 'テンプレ未定義';
     else if (FORBIDDEN.some(w => text.includes(w))) holdReason = '禁止語';
     else if (text.length > MAX_LEN) holdReason = '120字超過';
 
@@ -161,7 +178,9 @@ async function run({ userId, token, mediaId, postType = 'unknown', dryRun = fals
       template: text
         ? (cls === 'B2'
             ? (canGuide ? 'b2-receive-guide' : 'b2-receive')
-            : (canGuide ? 'light-reading-guide' : 'light-reading'))
+            : cls === 'B'
+              ? (canGuide ? 'b-thanks-guide' : 'b-thanks')
+              : (canGuide ? 'light-reading-guide' : 'light-reading'))
         : '',
       status: holdReason ? 'hold' : 'dry-run',
       hold_reason: holdReason,
@@ -190,4 +209,4 @@ async function run({ userId, token, mediaId, postType = 'unknown', dryRun = fals
   return results;
 }
 
-module.exports = { run, classify, buildReplyText, RECEIVE_VARIANTS, GUIDE_VARIANTS, FORBIDDEN };
+module.exports = { run, classify, buildReplyText, RECEIVE_VARIANTS, GUIDE_VARIANTS, B_VARIANTS, FORBIDDEN };

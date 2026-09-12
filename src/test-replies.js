@@ -40,7 +40,27 @@ console.log('3. 保留・安全装置');
 ok(buildReplyText('D', 0, true) === null, 'D は返信文なし（自動送信しない）');
 ok(!buildReplyText('B2', 0, false).includes('無料'), '同一ユーザー2回目は誘導なし（受け止めのみ）');
 ok(buildReplyText('B2', 0, false).includes('受け取りました'), '誘導なしでも受け止めの一言あり');
-ok(buildReplyText('B', 0, true) === null, 'B（雑談）はテンプレ未定義（今回は保留）');
+
+console.log('4. B分類（雑談・お礼リプ）＝受け取り＋軽い鑑定1行＋LINE誘導（2026-09-12 Designer追補）');
+{
+  ok(classify('🌙ありがとうございます') === 'B', '🌙ありがとう → B（お礼＝雑談）');
+  ok(classify('ありがとうございます') === 'B', 'お礼のみ（🌙なし） → B');
+  // プール6本を1件ずつ割当て・全件URL含有・120字以内・禁止語なし・プール内ユニーク
+  const seen = new Set();
+  for (let i = 0; i < 6; i++) {
+    const b = buildReplyText('B', i, true);
+    ok(b.includes('https://lin.ee/oSQE3an'), `B#${i + 1} は公式LINEリンク（URL）を含む`);
+    ok(b.length <= 120, `B#${i + 1} は120字以内（${b.length}字）`);
+    ok(!FORBIDDEN.some(w => b.includes(w)), `B#${i + 1} は禁止語なし`);
+    ok(b.includes('ありがとう'), `B#${i + 1} は受け取りの一言あり`);
+    seen.add(b);
+  }
+  ok(seen.size === 6, `Bプール6本すべてユニーク（${seen.size}/6）＝同じ文面を並べない`);
+  // 同一ユーザー2回目=誘導なし（URLを外した受け取りのみ）
+  const noguide = buildReplyText('B', 0, false);
+  ok(!noguide.includes('https://lin.ee/oSQE3an'), 'B=同一ユーザー2回目はURL（誘導）なし');
+  ok(noguide.includes('ありがとう'), 'B=誘導なしでも受け取りは返す');
+}
 
 console.log('5. 軽鑑定（A=自己申告/生年月日・C=相談 への自動返信）');
 {
@@ -84,6 +104,7 @@ console.log('7. 返信に載せるURLは公式LINEのみ（他URL・ココナラ
   for (let i = 0; i < 9; i++) samples.push(buildReplyText('B2', i, true));
   samples.push(buildReplyText('A', 0, true, '牡羊座です'));
   samples.push(buildReplyText('C', 1, true, '転職迷ってます'));
+  for (let i = 0; i < 6; i++) samples.push(buildReplyText('B', i, true));
   const all = samples.join('\n');
   ok(/https:\/\/lin\.ee\/oSQE3an/.test(all), '公式LINEリンクは含まれる');
   const rest = all.split('https://lin.ee/oSQE3an').join('');
