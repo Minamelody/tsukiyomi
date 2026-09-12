@@ -30,10 +30,10 @@ console.log('2. B2返信文（受け取り＋誘導＝全員誘導）');
   ok(!FORBIDDEN.some(w => t.includes(w)), '禁止語なし');
   // 全員誘導：カーソルが進んでも誘導が入る（誘導率カウンタ撤廃・R社長 2026-09-08）
   ok(buildReplyText('B2', 20, true).includes('無料'), 'カーソルが進んでも誘導あり（カウンタ撤廃）');
-  // 文面は受取×誘導の組合わせでローテーション → 9通りのユニーク文面（「それぞれに違う文面」）
+  // 文面はリード文（12種）×誘導テール（3型）でローテーション → 12通りのユニーク文面（「それぞれに違う文面」）
   const set = new Set();
-  for (let i = 0; i < 9; i++) set.add(buildReplyText('B2', i, true));
-  ok(set.size === 9, `9通りすべてユニーク（${set.size}通り）＝同じ文面を並べない`);
+  for (let i = 0; i < 12; i++) set.add(buildReplyText('B2', i, true));
+  ok(set.size === 12, `12通りすべてユニーク（${set.size}通り）＝同じ文面を並べない`);
 }
 
 console.log('3. 保留・安全装置');
@@ -69,7 +69,7 @@ console.log('5. 軽鑑定（A=自己申告/生年月日・C=相談 への自動�
   // 星座自己申告 → 呼称に星座名・見立て＋誘導
   const a = buildReplyText('A', 0, true, '牡羊座です。今日から始めたいことあります');
   ok(a.includes('牡羊座さん'), '星座名を呼称に反映');
-  ok(a.includes('そのお悩み、読みました'), '定型の受け止め行');
+  ok(a.includes('お悩みを読ませていただきました'), '定型の受け止め行');
   ok(a.includes('近づいている変化は'), '見立て#1（辞書ローテーション）');
   ok(a.includes('こちらのLINEから'), '公式LINE誘導行（全員誘導）');
   ok(a.includes('https://lin.ee/oSQE3an'), '軽鑑定にもLINEリンク');
@@ -77,7 +77,7 @@ console.log('5. 軽鑑定（A=自己申告/生年月日・C=相談 への自動�
   ok(!FORBIDDEN.some(w => a.includes(w)), '効果保証語/禁止語なし');
   // 相談（C・星座なし）→ 呼称なしで受け止め＋見立て#2
   const c = buildReplyText('C', 1, true, '転職迷ってます');
-  ok(c.includes('そのお悩み、読みました'), 'C=受け止め行');
+  ok(c.includes('お悩みを読ませていただきました'), 'C=受け止め行');
   ok(c.includes('焦っているほど、見えていないものが1つあります'), 'C=見立て#2（ローテーション）');
   ok(!c.includes('さん、'), '星座なし=Cは呼称なし');
   ok(c.includes('こちらのLINEから'), 'Cも誘導あり');
@@ -88,7 +88,7 @@ console.log('5. 軽鑑定（A=自己申告/生年月日・C=相談 への自動�
   // 同一ユーザー2回目=誘導なし（受け止め＋見立てのみ）
   const noguide = buildReplyText('A', 0, false, '牡羊座です');
   ok(!noguide.includes('無料の鑑定'), '2回目は誘導なし');
-  ok(noguide.includes('そのお悩み、読みました'), '2回目も受け止めは返す');
+  ok(noguide.includes('お悩みを読ませていただきました'), '2回目も受け止めは返す');
 }
 
 console.log('6. D判定（医療/投資/法律）は軽鑑定対象外・自動送信しない');
