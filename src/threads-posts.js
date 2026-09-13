@@ -248,7 +248,7 @@ const TYPE_A_MEANINGS = {
 // ・煽り強め（二択・期限の切迫感・弱さの名指し）だが、効果保証語（必ず/絶対/保証）・実績捏造・いいね/フォロー依頼は「ない」。
 const TYPE_A_FLOW = {
   '天赦日': {
-    caveat: 'なのに、あなたはまだ、過去を許せないままでいます。',
+    caveat: 'あなたは過去を、許せないままでいます。',
     actions: [
       '今日、許すか、許さないか。それだけです。',
       '次に許せる日がいつ来るかは、だれにも分かりません。今日、手放しなさい。',
@@ -256,7 +256,7 @@ const TYPE_A_FLOW = {
     question: '今日、許すなら、誰を許しますか。',
   },
   '一粒万倍日': {
-    caveat: 'なのに、あなたはまだ何も始めていません。',
+    caveat: 'あなたはまだ何も始めていません。',
     actions: [
       '今日、まくか、まかないか。それだけです。',
       'この機会を逃せば、次はいつ来るか分かりません。明日では遅い。',
@@ -264,7 +264,7 @@ const TYPE_A_FLOW = {
     question: '今日、始めるなら、何から始めますか。',
   },
   '母倉日': {
-    caveat: 'なのに、あなたは大切な人を、後回しにし続けています。',
+    caveat: 'あなたは大切な人を、後回しにし続けています。',
     actions: [
       '今日、伝えるか、伝えないか。それだけです。',
       '言いそびれた言葉は、明日には言えなくなります。今日、伝えなさい。',
@@ -272,7 +272,7 @@ const TYPE_A_FLOW = {
     question: '今日、いちばん大切にしたい人は、だれですか。',
   },
   '天恩日': {
-    caveat: 'なのに、あなたは受けた恩を、そのままにしていませんか。',
+    caveat: 'あなたは受けた恩を、そのままにしていませんか。',
     actions: [
       '今日、返すか、返さないか。それだけです。',
       '恩は返さなければ、そこで止まります。今日、ありがとうを言葉にしなさい。',
@@ -280,7 +280,7 @@ const TYPE_A_FLOW = {
     question: '最近、ありがとうを伝えたい人は、いますか。',
   },
   '寅の日': {
-    caveat: 'なのに、あなたは今日も、動き出せずにいます。',
+    caveat: 'あなたは今日も、動き出せずにいます。',
     actions: [
       '今日、動くか、動かないか。それだけです。',
       'この力を逃せば、次に動ける日は、また先になります。今日、一歩踏み出しなさい。',
@@ -288,7 +288,7 @@ const TYPE_A_FLOW = {
     question: '今日、一歩動くなら、どこから始めますか。',
   },
   '巳の日': {
-    caveat: 'なのに、あなたはお金の流れを、乱れたまま放っています。',
+    caveat: 'あなたはお金の流れを、乱れたまま放っています。',
     actions: [
       '今日、整えるか、整えないか。それだけです。',
       '無駄を放っておけば、金運が巡る日は遠くなります。今日、片付けなさい。',
@@ -714,4 +714,4 @@ function planDayLegacy(date, count = 3, recent = []) {
   return posts;
 }
 
-module.exports = { engagementPost, funnelPost, planDay, planDayLegacy, buildTypeB, buildTypeFomo, buildTypeNight, buildTypeMidnight, buildSelfIntro, SCENES };
+module.exports = { engagementPost, funnelPost, planDay, planDayLegacy, buildTypeB, buildTypeFomo, buildTypeNight, buildTypeMidnight, buildSelfIntro, TYPE_A_FLOW, SCENES };

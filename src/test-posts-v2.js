@@ -172,6 +172,17 @@ async function main() {
     ok((await planDay('2026-09-06', 3, []))[2].type === 'type_d', '9/06(日曜)は型Dのまま（オーバーライドは当日のみ）');
   }
 
+  console.log('10c. 型A（暦）の但し書きから「なのに」を全撤去（R社長 4077876・Designer確定文）');
+  {
+    const { TYPE_A_FLOW } = require('./threads-posts');
+    const keys = Object.keys(TYPE_A_FLOW);
+    ok(keys.length === 6, `TYPE_A_FLOW は6種（実際: ${keys.length}）`);
+    for (const [k, f] of Object.entries(TYPE_A_FLOW)) {
+      ok(!f.caveat.includes('なのに'), `「${k}」caveat に「なのに」非含有`);
+      ok(/^あなた/.test(f.caveat), `「${k}」caveat は「あなた」始まりの名指しに`);
+    }
+  }
+
   console.log('11. 型T3夜（21時・煽り）の構造と禁止語');
   {
     const mon = await planDay('2026-09-07', 3, []);
