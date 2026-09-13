@@ -154,6 +154,24 @@ async function main() {
     ok(mon[2].cardSpec === null, '型T3夜はカードなし（テキストのみ・夜の独白型）');
   }
 
+  console.log('10b. 自己紹介ポスト（21時枠・当日オーバーライド 2026-09-13・R社長 4062699）');
+  {
+    const posts = await planDay('2026-09-13', 3, []);
+    const s = posts[2];
+    ok(s.type === 'self_intro', `9/13 slot2=自己紹介（実際: ${s.type}）`);
+    ok(s.cardSpec === null, '自己紹介はテキストのみ（cardSpec null・画像添付しない）');
+    ok(s.text.includes('ツキヨミです'), '屋号＋自己紹介の冒頭あり');
+    ok(s.text.includes('5つの占術を重ねて'), '5占術の重ね読みの説明あり');
+    ok(s.text.includes('登録は不要で、入力はお名前と生年月日だけです'), 'L5確定文（登録不要・名前+生年月日）あり');
+    ok(/フォローして、また夜/.test(s.text), '末尾にフォロー誘導行あり');
+    ok(!/必ず|絶対|保証|当たります|治り|儲か|霊視|DM/.test(s.text), '効果保証・禁止語なし');
+    ok(!/タイプ|3で割る/.test(s.text), '旧日曜型Dの残骸なし');
+    // 決定論（日付キー）: 同日は同一文面
+    ok(s.text === (await planDay('2026-09-13', 3, []))[2].text, '同日=同一文面（決定論）');
+    // 他の日曜（9/06）は従来どおり型Dのまま
+    ok((await planDay('2026-09-06', 3, []))[2].type === 'type_d', '9/06(日曜)は型Dのまま（オーバーライドは当日のみ）');
+  }
+
   console.log('11. 型T3夜（21時・煽り）の構造と禁止語');
   {
     const mon = await planDay('2026-09-07', 3, []);

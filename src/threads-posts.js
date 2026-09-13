@@ -561,6 +561,27 @@ function buildTypeMidnight(dateStr) {
   return { type: 'type_midnight', tag: 'midnight', text: lines.join('\n'), cardSpec: null };
 }
 
+// ── 自己紹介ポスト（21時枠・R社長 2026-09-13 4062699/4062736 確定文面） ─────────
+// 静かな夜の自己紹介。テキストのみ（カードなし）。効果保証・実績数字・禁止語ゼロ。
+// 末尾にフォロー誘導1行を本文に含む（他のFOLLOW_LINESとは別）。
+const SELF_INTRO_TEXT = [
+  'あなたの名前と生年月日から、5つの占術を重ねて読む占い師、ツキヨミです。',
+  '姓名判断・四柱推命・タロット・12星座・西洋占星術。5つの視点は、どれかひとつで「あなた」を決めつけるためではなく、同じ人を違う角度から眺めて、重なるところにその人らしさを見つけるために使っています。',
+  'だから私の鑑定は、1冊の鑑定書にまとめてお届けする形にしています。ひとつの占いの答えではなく、5つの占いが重なった「あなたの流れ」を読んでほしいからです。',
+  '名前と生まれた日だけで、その重なりは見えてきます。難しいことは何もいりません。',
+  '無料の鑑定もプロフィールに置いてあります。登録は不要で、入力はお名前と生年月日だけです。',
+  '夜の静かな時間に、あなたの流れを読むのを楽しみにしています。',
+  'フォローして、また夜、ここで会いましょう。',
+].join('\n');
+
+// 21時枠を自己紹介に差し替える日（当日オーバーライド・日付キー決定論・R社長 4062699）。
+// 恒常的な自己紹介への切替（週サイクル等）はR社長の正式決定待ち。ここは当日指定のみ。
+const SELF_INTRO_DATES = new Set(['2026-09-13']);
+
+function buildSelfIntro() {
+  return { type: 'self_intro', tag: 'self_intro', text: SELF_INTRO_TEXT, cardSpec: null };
+}
+
 /**
  * 1日分の投稿計画（v3・型A/B/D＋T3夜＋深夜枠）。slot0=朝(型A暦) / slot1=昼(型FOMO🌙) / slot2=夜(型D日曜/型T3夜) / slot3=深夜(問いかけ)。
  * slot2 は 日曜=型D(診断)、月〜土=型T3夜(煽り・暦非依存)。日曜型D は週1枠として維持（R社長 3741861）。
@@ -573,7 +594,7 @@ async function planDay(date, count = 4, recent = [], opts = {}) {
   if (!facts) return planDayLegacy(date, count, recent);
 
   const used = new Set(recent);
-  const kinds = ['type_a', 'type_fomo', isSunday(date) ? 'type_d' : 'type_night', 'type_midnight'];  // slot0/1/2/3
+  const kinds = ['type_a', 'type_fomo', SELF_INTRO_DATES.has(date) ? 'self_intro' : (isSunday(date) ? 'type_d' : 'type_night'), 'type_midnight'];  // slot0/1/2/3
   const posts = [];
   for (let i = 0; i < Math.min(count, kinds.length); i++) {
     if (kinds[i] === 'type_a' && (!facts.typeAFacts || !facts.typeAFacts.length)) {
@@ -590,11 +611,13 @@ async function planDay(date, count = 4, recent = [], opts = {}) {
           ? buildTypeFomo()                    // 決定論的（定型ミーム）
           : kind === 'type_b'
             ? buildTypeB(date, r)
-            : kind === 'type_night'
-              ? buildTypeNight(date)           // 決定論的（日替わり辞書ローテーション）
-              : kind === 'type_midnight'
-                ? buildTypeMidnight(date)      // 決定論的（問いプール・JST日付キー）
-                : buildTypeD(date, r);
+            : kind === 'self_intro'
+              ? buildSelfIntro()               // 当日オーバーライド（日付キー決定論）
+              : kind === 'type_night'
+                ? buildTypeNight(date)         // 決定論的（日替わり辞書ローテーション）
+                : kind === 'type_midnight'
+                  ? buildTypeMidnight(date)    // 決定論的（問いプール・JST日付キー）
+                  : buildTypeD(date, r);
       post = cand;
       if (!used.has(cand.text)) break;
     }
@@ -691,4 +714,4 @@ function planDayLegacy(date, count = 3, recent = []) {
   return posts;
 }
 
-module.exports = { engagementPost, funnelPost, planDay, planDayLegacy, buildTypeB, buildTypeFomo, buildTypeNight, buildTypeMidnight, SCENES };
+module.exports = { engagementPost, funnelPost, planDay, planDayLegacy, buildTypeB, buildTypeFomo, buildTypeNight, buildTypeMidnight, buildSelfIntro, SCENES };
