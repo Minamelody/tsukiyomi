@@ -21,6 +21,13 @@ function arg(name, def) {
   return i > -1 ? (process.argv[i + 1] ?? true) : def;
 }
 
+// 再スキャン窓の下限（恒久対応・PM 4077376）。
+// 「投稿+5h」のバッチは投稿時刻基準のため、投稿から5h超に届いた遅着リプを見落とす
+// （実例: 21時投稿への3:13着信リプが7:00 runで漏れた）。毎runで直近 RESCAN_HOURS 時間の投稿を
+// 再スキャンして未返信を回収する。二重送信は conversation の is_reply_owned_by_me（未返信判定）で
+// 防止済みなので、窓を広げても安全。
+const RESCAN_HOURS = 24;
+
 async function main() {
   const userId = process.env.THREADS_USER_ID;
   const token = process.env.THREADS_ACCESS_TOKEN;
@@ -42,14 +49,15 @@ async function main() {
       console.error('--recent-hours <正の時間数> を指定してください');
       process.exit(1);
     }
+    const window = Math.max(h, RESCAN_HOURS);
     const client = new ThreadsClient({ userId, accessToken: token });
     const threads = await client.listThreads();
-    mediaIds = filterRecentThreads(threads.data, h);
+    mediaIds = filterRecentThreads(threads.data, window);
     if (mediaIds.length === 0) {
-      console.log(`直近${h}時間の投稿はありません。`);
+      console.log(`直近${window}時間の投稿はありません。`);
       return;
     }
-    console.log(`直近${h}時間の投稿 ${mediaIds.length} 件を対象にします: ${mediaIds.join(', ')}`);
+    console.log(`直近${window}時間の投稿 ${mediaIds.length} 件を対象にします（指定 ${h}h の下限 ${RESCAN_HOURS}h で再スキャン）: ${mediaIds.join(', ')}`);
   } else {
     console.error('--media-id <id> か --recent-hours <N> を指定してください');
     process.exit(1);
