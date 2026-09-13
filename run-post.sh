@@ -19,7 +19,7 @@ if [ ! -f .env.threads ]; then
 fi
 set -a; source .env.threads; set +a
 SLOT="${1:-0}"
-ARGS=(--slot "$SLOT" --per-day 3)
+ARGS=(--slot "$SLOT" --per-day 4)
 LIVE=0
 for a in "$@"; do [ "$a" = "--live" ] && LIVE=1; done
 NOTIFY_TARGET="${AUTOPOST_NOTIFY_TARGET:-#channel-186445d0:ch_26eaf45e17c0b652207fa215c03e7b85}"
