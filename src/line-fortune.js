@@ -258,9 +258,11 @@ function buildReport({ sei = '', mei = '', birthday } = {}) {
  * 12星座・四柱推命・タロットを収録し、末尾に誘導行を置く（運気の流れと
  * 上昇星座の深掘りは有料セット側に残す）。全本文は既存辞書の断片のみ
  * （新規の占い文言は書かない）。生年月日は必須・決定論（LLM非依存）。
+ * worry（任意）を渡すと、誘導行の直前に「あなたの悩みへ」セクションを
+ * 挿入する（本文はDesigner/DR確定文面をそのまま載せる・生成はしない）。
  * @returns {{ text:string, sections:{head:string|null,body:string}[] }}
  */
-function buildReportShort({ sei = '', mei = '', birthday } = {}) {
+function buildReportShort({ sei = '', mei = '', birthday, worry = '' } = {}) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(birthday || '')) {
     throw new Error('birthday は YYYY-MM-DD 形式で必須です');
   }
@@ -311,6 +313,10 @@ function buildReportShort({ sei = '', mei = '', birthday } = {}) {
     body: `いまのあなたの1枚は、${cart.card}（${cart.orientation}）。${tv.brief}。急がず、${tv.advice}を選ぶのが、自然な流れのようです。`,
   });
 
+  if (worry) {
+    sections.push({ head: 'あなたの悩みへ', body: worry });
+  }
+
   sections.push({ head: null, body: guide });
 
   const text = sections
@@ -349,7 +355,7 @@ if (require.main === module) {
   }
   try {
     if (arg('short')) {
-      const r = buildReportShort({ sei: arg('sei', ''), mei: arg('mei', ''), birthday: arg('birthday', '') });
+      const r = buildReportShort({ sei: arg('sei', ''), mei: arg('mei', ''), birthday: arg('birthday', ''), worry: arg('worry', '') });
       if (arg('json')) {
         console.log(JSON.stringify({ sections: r.sections }));
       } else {

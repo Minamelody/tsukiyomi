@@ -138,6 +138,17 @@ console.log('9. 短縮版（400〜500字・R社長 4089151）');
   ok(full.text.includes('【四柱推命】') && full.text.includes('【タロット】'), '短縮版でも四柱推命・タロットを収録');
   ok(FORBIDDEN.every(w => !full.text.includes(w) && !noname.text.includes(w)), '短縮版に禁止語なし');
   ok(buildReportShort({ sei: '平石', mei: '廉太郎', birthday: '2004-10-04' }).text === full.text, '短縮版も決定論（同一入力=同一出力）');
+
+  // worry（悩みへの見立て）を渡すと「あなたの悩みへ」を誘導行の直前に挿入
+  const worryText = 'お身体のことは、私が言葉にするところではありません。信頼できる医療機関にお任せください。';
+  const wr = buildReportShort({ sei: '', mei: 'ゆか', birthday: '1990-08-29', worry: worryText });
+  const heads = wr.sections.map(s => s.head);
+  ok(heads.includes('あなたの悩みへ'), 'worry付きは「あなたの悩みへ」セクションを挿入');
+  ok(heads.indexOf('あなたの悩みへ') === heads.length - 2, '「あなたの悩みへ」は誘導行（末尾）の直前');
+  ok(wr.sections.find(s => s.head === 'あなたの悩みへ').body === worryText, '見立て文面をそのまま本文に載せる');
+  ok(FORBIDDEN.every(w => !wr.text.includes(w)), 'worry付きも禁止語なし');
+  const withoutWorry = buildReportShort({ sei: '', mei: 'ゆか', birthday: '1990-08-29' });
+  ok(!withoutWorry.sections.some(s => s.head === 'あなたの悩みへ'), 'worry未指定は挿入しない');
 }
 
 console.log(`\n結果: ${pass} PASS / ${fail} FAIL`);
