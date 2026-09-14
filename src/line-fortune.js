@@ -253,6 +253,69 @@ function buildReport({ sei = '', mei = '', birthday } = {}) {
   return { text, sections, checks: qaCheck(text, sections) };
 }
 
+/**
+ * 短縮版（200〜300字）を生成する。5種のうち星座・タロットを主役に、
+ * 姓名（姓+名）があれば姓名判断を1行添える。全本文は既存辞書の断片のみ
+ * （新規の占い文言は書かない）。生年月日は必須・決定論（LLM非依存）。
+ * @returns {{ text:string, sections:{head:string|null,body:string}[] }}
+ */
+function buildReportShort({ sei = '', mei = '', birthday } = {}) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(birthday || '')) {
+    throw new Error('birthday は YYYY-MM-DD 形式で必須です');
+  }
+  const [y, m, d] = birthday.split('-').map(Number);
+  const name = (sei + mei).trim();
+
+  const seimei = name ? seimeiHandan(sei, mei) : null;
+  const jinkaku = (seimei && seimei.kaku && seimei.kaku.人格) ? seimei.kaku.人格.n : null;
+  const sun = horoscope(birthday).sun.name;
+  const cards = draw3(`${name}|${birthday}`);
+  const cart = cards.find(c => c.position === '現在') || cards[1];
+  const guide = (hash(birthday) % 2 === 0) ? GUIDE_A : GUIDE_B;
+
+  const greet = name
+    ? `${name}さん、生まれた日とお名前から、あなたの流れを読みました。`
+    : '生まれた日から、あなたの流れを読みました。';
+
+  const sections = [{ head: null, body: greet }];
+
+  if (jinkaku != null) {
+    const nr = numrei(jinkaku);
+    sections.push({
+      head: '姓名判断',
+      body: `お名前の中心は${jinkaku}画。${nr.nature}。`,
+    });
+  }
+
+  const zod = ZODIAC[sun];
+  const genkyo = GENKYO[moonPhaseKey(birthday)];
+  sections.push({
+    head: '12星座・西洋占星術',
+    body: `${m}月${d}日生まれのあなたの太陽は${sun}。${zod.nature}ことを大切にする、${zod.word}のような人。今は${genkyo}の流れの中にいます。`,
+  });
+
+  const tv = TAROT[cart.card] || TAROT['愚者'];
+  sections.push({
+    head: 'タロット',
+    body: `いまのあなたの1枚は、${cart.card}（${cart.orientation}）。${tv.brief}。${tv.advice}。`,
+  });
+
+  const shichu = shichuMeishiki(birthday);
+  const gy = GOGYO[shichu.nikkan.element];
+  sections.push({
+    head: '四柱推命',
+    body: `日干は${shichu.nikkan.kan}（${shichu.nikkan.element}）。${gy.nature}の持ち味。`,
+  });
+
+  sections.push({ head: null, body: guide });
+
+  const text = sections
+    .map(s => (s.head ? `【${s.head}】\n${s.body}` : s.body))
+    .join('\n\n');
+
+  return { text, sections };
+}
+
 // ── 回帰QA 5点 ───────────────────────────────────────────────────────────
 function qaCheck(text, sections) {
   const fails = [];
@@ -272,7 +335,7 @@ function qaCheck(text, sections) {
   return { len, ok: fails.length === 0, fails };
 }
 
-module.exports = { buildReport, qaCheck, ZODIAC, TAROT, JIGI, GENKYO, FORBIDDEN };
+module.exports = { buildReport, buildReportShort, qaCheck, ZODIAC, TAROT, JIGI, GENKYO, FORBIDDEN };
 
 // CLI（R社長専用）
 if (require.main === module) {
@@ -281,11 +344,20 @@ if (require.main === module) {
     return i > -1 ? (process.argv[i + 1] ?? true) : def;
   }
   try {
-    const r = buildReport({ sei: arg('sei', ''), mei: arg('mei', ''), birthday: arg('birthday', '') });
-    if (arg('check')) {
-      console.log(JSON.stringify(r.checks, null, 2));
+    if (arg('short')) {
+      const r = buildReportShort({ sei: arg('sei', ''), mei: arg('mei', ''), birthday: arg('birthday', '') });
+      if (arg('json')) {
+        console.log(JSON.stringify({ sections: r.sections }));
+      } else {
+        console.log(r.text);
+      }
     } else {
-      console.log(r.text);
+      const r = buildReport({ sei: arg('sei', ''), mei: arg('mei', ''), birthday: arg('birthday', '') });
+      if (arg('check')) {
+        console.log(JSON.stringify(r.checks, null, 2));
+      } else {
+        console.log(r.text);
+      }
     }
   } catch (e) {
     console.error('失敗:', e.message);

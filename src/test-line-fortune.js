@@ -3,7 +3,7 @@
 //
 // 回帰5点（DR 3832028 §6）＋「同じ入力=毎回同一出力」（TL 3832064）＋名前なし版を検証。
 
-const { buildReport, qaCheck } = require('./line-fortune');
+const { buildReport, buildReportShort, qaCheck, FORBIDDEN } = require('./line-fortune');
 const lc = require('./lunar-calendar');
 
 let pass = 0, fail = 0;
@@ -124,6 +124,19 @@ console.log('8. lunar-calendar（選日JSポート）が senjitsu.py と一致�
     }
   }
   ok(bad === 0, `選日5日クロスチェック一致（不一致 ${bad}）`);
+}
+
+console.log('9. 短縮版（200〜300字・R社長 4079879）');
+{
+  const full = buildReportShort({ sei: '平石', mei: '廉太郎', birthday: '2004-10-04' });
+  const noname = buildReportShort({ sei: '', mei: 'ゆか', birthday: '1990-08-29' });
+  const inRange = t => t.length >= 200 && t.length <= 300;
+  ok(inRange(full.text), `姓名ありが200〜300字（実測 ${full.text.length}）`);
+  ok(inRange(noname.text), `名前なしが200〜300字（実測 ${noname.text.length}）`);
+  ok(full.text.includes('【姓名判断】'), '姓名ありは姓名判断セクションあり');
+  ok(!noname.text.includes('【姓名判断】'), '名前なし（下の名前のみ）は姓名判断スキップ');
+  ok(FORBIDDEN.every(w => !full.text.includes(w) && !noname.text.includes(w)), '短縮版に禁止語なし');
+  ok(buildReportShort({ sei: '平石', mei: '廉太郎', birthday: '2004-10-04' }).text === full.text, '短縮版も決定論（同一入力=同一出力）');
 }
 
 console.log(`\n結果: ${pass} PASS / ${fail} FAIL`);
