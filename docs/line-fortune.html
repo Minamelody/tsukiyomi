@@ -1173,8 +1173,9 @@ function buildReport({ sei = '', mei = '', birthday } = {}) {
 }
 
 /**
- * 短縮版（200〜300字）を生成する。5種のうち星座・タロットを主役に、
- * 姓名（姓+名）があれば姓名判断を1行添える。全本文は既存辞書の断片のみ
+ * 短縮版（400〜500字）を生成する。5種のうち姓名判断（姓名あり時のみ）・
+ * 12星座・四柱推命・タロットを収録し、末尾に誘導行を置く（運気の流れと
+ * 上昇星座の深掘りは有料セット側に残す）。全本文は既存辞書の断片のみ
  * （新規の占い文言は書かない）。生年月日は必須・決定論（LLM非依存）。
  * @returns {{ text:string, sections:{head:string|null,body:string}[] }}
  */
@@ -1187,6 +1188,9 @@ function buildReportShort({ sei = '', mei = '', birthday } = {}) {
 
   const seimei = name ? seimeiHandan(sei, mei) : null;
   const jinkaku = (seimei && seimei.kaku && seimei.kaku.人格) ? seimei.kaku.人格.n : null;
+  const shichu = shichuMeishiki(birthday);
+  const nikkanKan = shichu.nikkan.kan;
+  const nikkanEl = shichu.nikkan.element;
   const sun = horoscope(birthday).sun.name;
   const cards = draw3(`${name}|${birthday}`);
   const cart = cards.find(c => c.position === '現在') || cards[1];
@@ -1202,7 +1206,7 @@ function buildReportShort({ sei = '', mei = '', birthday } = {}) {
     const nr = numrei(jinkaku);
     sections.push({
       head: '姓名判断',
-      body: `お名前の中心は${jinkaku}画。${nr.nature}。`,
+      body: `お名前の中心になる画数は${jinkaku}画。この画数には${nr.nature}の性質があって、あなたらしさがよく出るようです。`,
     });
   }
 
@@ -1210,20 +1214,20 @@ function buildReportShort({ sei = '', mei = '', birthday } = {}) {
   const genkyo = GENKYO[moonPhaseKey(birthday)];
   sections.push({
     head: '12星座・西洋占星術',
-    body: `${m}月${d}日生まれのあなたの太陽は${sun}。${zod.nature}ことを大切にする、${zod.word}のような人。今は${genkyo}の流れの中にいます。`,
+    body: `${m}月${d}日生まれのあなたの太陽は${sun}。${zod.nature}ことを大切にする、${zod.word}のような人として映ります。今のあなたは${genkyo}の流れの中にいて、繰り返し浮かぶ考えが、答えの形をやわらかく変えているようです。生まれた時刻・場所をいただけると、上昇星座まで読めます。`,
+  });
+
+  const gy = GOGYO[nikkanEl];
+  const gesshi = monthElement(y, m);
+  sections.push({
+    head: '四柱推命',
+    body: `あなたの日干は${nikkanKan}（${nikkanEl}）。${gy.nature}の持ち味を持つ日干で、${gy.scene}に力を発揮しやすいようです。今は${gesshi}の気が強く、${gy.rec1}よりも${gy.rec2}を進めるのが、流れに合っているように見えます。`,
   });
 
   const tv = TAROT[cart.card] || TAROT['愚者'];
   sections.push({
     head: 'タロット',
-    body: `いまのあなたの1枚は、${cart.card}（${cart.orientation}）。${tv.brief}。${tv.advice}。`,
-  });
-
-  const shichu = shichuMeishiki(birthday);
-  const gy = GOGYO[shichu.nikkan.element];
-  sections.push({
-    head: '四柱推命',
-    body: `日干は${shichu.nikkan.kan}（${shichu.nikkan.element}）。${gy.nature}の持ち味。`,
+    body: `いまのあなたの1枚は、${cart.card}（${cart.orientation}）。${tv.brief}。急がず、${tv.advice}を選ぶのが、自然な流れのようです。`,
   });
 
   sections.push({ head: null, body: guide });

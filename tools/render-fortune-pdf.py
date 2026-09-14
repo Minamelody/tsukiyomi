@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# tools/render-fortune-pdf.py — 無料鑑定（短縮版200〜300字）をツキヨミ・コンセプトの
+# tools/render-fortune-pdf.py — 無料鑑定（短縮版400〜500字）をツキヨミ・コンセプトの
 # 縦型A4カードPDFへ描画する。gen_brand.py のブランド要素（夜空・三日月・金枠）を再利用し、
 # 文面は既存辞書の断片のみ。入力はJSON（sections配列）。出力は単ページPDF（画像として埋め込み）。
 #
@@ -17,13 +17,13 @@ import gen_brand as B
 W, H = 1654, 2339
 
 # レイアウト
-PAD = 70               # 金枠の余白
-MX = 150               # 本文の左右マージン
-WORD_Y = 300           # ワードマーク上端
-GREET_Y = 620          # 挨拶の上端
-BODY_Y0 = 780          # セクション開始
-LINE = 1.62            # 行間（フォントサイズ比）
-BODY_MIN_GAP = 46      # セクション間の最小余白
+PAD = 64               # 金枠の余白
+MX = 140               # 本文の左右マージン
+WORD_Y = 430           # ワードマーク上端（三日月の下・被らない位置）
+GREET_Y = 700          # 挨拶の上端
+BODY_Y0 = 820          # セクション開始
+LINE = 1.5             # 行間（フォントサイズ比）
+BODY_MIN_GAP = 40      # セクション間の最小余白
 
 
 def font(path, size):
@@ -66,41 +66,41 @@ def main():
     img = B.background(W, H, gx=0.50, gy=0.13, stars=300, seed=20260914)
 
     # 三日月（上部中央）＋光輪
-    mx, my, mr = W * 0.5, H * 0.115, 158
-    img = B.halo(img, mx, my, mr, strength=56)
+    mx, my, mr = W * 0.5, 235, 104
+    img = B.halo(img, mx, my, mr, strength=46)
     B.crescent(img, mx, my, mr, B.GOLD, phase=0.58)
 
     d = ImageDraw.Draw(img)
 
     # 金枠＋四隅のあしらい
     B.frame(d, W, H, pad=PAD, corner=90)
-    for (sx, sy, sr) in [(0.22, 0.225, 10), (0.78, 0.225, 10), (0.30, 0.90, 8), (0.70, 0.90, 8)]:
+    for (sx, sy, sr) in [(0.20, 0.20, 9), (0.80, 0.20, 9), (0.30, 0.90, 8), (0.70, 0.90, 8)]:
         B.star_glyph(d, W * sx, H * sy, sr, B.GOLD_D)
 
     # ワードマーク（中央）
-    fn_word = font(B.SERIF_L, 104)
+    fn_word = font(B.SERIF_L, 96)
     word = "ツ キ ヨ ミ"
     ww = d.textlength(word, font=fn_word)
     d.text(((W - ww) / 2, WORD_Y), word, font=fn_word, fill=B.GOLD)
 
-    fn_sub = font(B.SANS, 30)
+    fn_sub = font(B.SANS, 28)
     sub = "F O R T U N E  T E L L I N G"
     sw = d.textlength(sub, font=fn_sub)
-    d.text(((W - sw) / 2, WORD_Y + 150), sub, font=fn_sub, fill=B.MUTE)
+    d.text(((W - sw) / 2, WORD_Y + 136), sub, font=fn_sub, fill=B.MUTE)
 
     # 罫線
-    rule_y = WORD_Y + 150 + 66
+    rule_y = WORD_Y + 136 + 58
     d.line([(W * 0.30, rule_y), (W * 0.70, rule_y)], fill=B.GOLD_D, width=2)
 
     sections = spec.get('sections', [])
-    fn_body = font(B.SERIF, 40)
-    fn_head = font(B.SERIF_B, 44)
-    fn_greet = font(B.SERIF_L, 46)
-    fn_guide = font(B.SERIF, 34)
-    fn_footer = font(B.SANS, 30)
+    fn_body = font(B.SERIF, 38)
+    fn_head = font(B.SERIF_B, 42)
+    fn_greet = font(B.SERIF_L, 44)
+    fn_guide = font(B.SERIF, 32)
+    fn_footer = font(B.SANS, 28)
 
-    body_font_h = int(40 * LINE)          # 本文行高
-    head_font_h = 44 + 22                  # 見出し＋下余白
+    body_font_h = int(38 * LINE)          # 本文行高
+    head_font_h = 42 + 16                  # 見出し＋下余白
 
     y = GREET_Y
 
@@ -130,7 +130,7 @@ def main():
         glines = wrap(d, guide['body'], fn_guide, W - MX * 2)
         for ln in glines:
             d.text((W / 2 - d.textlength(ln, font=fn_guide) / 2, y), ln, font=fn_guide, fill=B.MUTE)
-            y += int(34 * LINE)
+            y += int(32 * LINE)
 
     foot = "ツ キ ヨ ミ"
     fw = d.textlength(foot, font=fn_footer)
